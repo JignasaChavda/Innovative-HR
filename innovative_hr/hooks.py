@@ -129,9 +129,9 @@ app_license = "mit"
 # ---------------
 # Override standard doctype classes
 
-# override_doctype_class = {
-# 	"ToDo": "custom_app.overrides.CustomToDo"
-# }
+override_doctype_class = {
+	"Salary Slip": "innovative_hr.override.salary_slip_override.SalarySlip"
+}
 
 # Document Events
 # ---------------
@@ -242,3 +242,52 @@ app_license = "mit"
 # 	"Logging DocType Name": 30  # days to retain logs
 # }
 
+fixtures = [
+    "Workflow",
+    "Workflow State",
+    "Workflow Action Master",
+    
+    {"dt":"Print Format","filters":[
+        [
+            "module","in",[
+               "Innovative HR"
+            ],
+        ]
+    ]},
+    {"dt":"Custom Field","filters":[
+        [
+            "module","in",[
+               "Innovative HR"
+            ],
+        ]
+    ]},
+    {"dt":"Property Setter","filters":[
+        [
+            "module","in",[
+               "Innovative HR"
+            ],
+        ]
+    ]},
+    {"dt":"Client Script","filters":[
+        [
+            "module","in",[
+               "Innovative HR"
+            ],
+        ]
+    ]},
+    {"dt":"Server Script","filters":[
+        [
+            "module","in",[
+               "Innovative HR"
+            ],
+        ]
+    ]},
+    {"dt":"Report","filters":[
+        [
+            "module","in",[
+               "Innovative HR"
+            ],
+        ]
+    ]}
+
+]
