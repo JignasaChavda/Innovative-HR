@@ -1,0 +1,142 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:GR-{#####}",
+ "creation": "2025-02-27 16:29:51.187798",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_break_cevf",
+  "from_date",
+  "to_date",
+  "payroll_date",
+  "column_break_vnxq",
+  "guest_house",
+  "guesthouse_rent",
+  "electricity_bill_amount",
+  "section_break_hncu",
+  "employee_details",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_break_cevf",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "guest_house",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Guest House",
+   "options": "Guest House",
+   "reqd": 1
+  },
+  {
+   "fieldname": "payroll_date",
+   "fieldtype": "Date",
+   "in_list_view": 1,
+   "label": "Payroll Date",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_vnxq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "from_date",
+   "fieldtype": "Date",
+   "label": "From Date"
+  },
+  {
+   "fieldname": "to_date",
+   "fieldtype": "Date",
+   "label": "To Date"
+  },
+  {
+   "fieldname": "section_break_hncu",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "employee_details",
+   "fieldtype": "Table",
+   "label": "Employee Details",
+   "options": "Guest House Employees",
+   "reqd": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Guest House Rent Details",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "guesthouse_rent",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "GuestHouse Rent",
+   "precision": "2",
+   "reqd": 1
+  },
+  {
+   "fieldname": "electricity_bill_amount",
+   "fieldtype": "Currency",
+   "label": "Electricity Bill Amount",
+   "precision": "2"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2025-02-27 16:39:03.077714",
+ "modified_by": "Administrator",
+ "module": "Innovative HR",
+ "name": "Guest House Rent Details",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
