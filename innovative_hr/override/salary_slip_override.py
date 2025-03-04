@@ -44,6 +44,7 @@ class SalarySlip(TransactionBase):
                 )
     def set_new_working_days(self):
         
+        absent_days = 0.0
         start_date = frappe.utils.getdate(self.start_date)
         end_date = frappe.utils.getdate(self.end_date)
         emp_type = frappe.get_value('Employee', self.employee, 'employment_type')
@@ -52,11 +53,13 @@ class SalarySlip(TransactionBase):
         joining_date = frappe.utils.getdate(joining_date) if joining_date else None
         relieving_date = frappe.db.get_value('Employee', self.employee, 'relieving_date')
         currency = frappe.db.get_value('Employee', self.employee, 'salary_currency')
-        duration_in_days = (end_date - start_date).days
+        duration_in_days = (end_date - start_date).days + 1
         if joining_date:
             joining_duration_days = (joining_date - start_date).days
         if relieving_date:
             relieving_duration_days = (end_date - relieving_date).days 
+        
+        
 
         # Calculate working days based on the employement type
         if emp_type in ["Worker"] and holiday_list:
@@ -131,6 +134,7 @@ class SalarySlip(TransactionBase):
                 elif emp_type in ["Staff", "Staff Trainee"]:
                     absent_days = relieving_duration_days
 
-        
+    
         self.total_working_days = duration_in_days
         self.absent_days = self.absent_days + absent_days
+        self.payment_days = self.total_working_days - (self.leave_without_pay + self.absent_days)
