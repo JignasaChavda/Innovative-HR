@@ -1,1 +1,13 @@
-[]
+[
+ {
+  "docstatus": 0,
+  "doctype": "Client Script",
+  "dt": "Employee",
+  "enabled": 1,
+  "modified": "2025-03-12 12:59:59.528175",
+  "module": "Innovative HR",
+  "name": "Set reporting manager name",
+  "script": "frappe.ui.form.on('Employee', {\n    reports_to: function(frm) {\n        if (Array.isArray(frm.doc.reports_to) && frm.doc.reports_to.length) {\n            let employee_ids = frm.doc.reports_to.map(emp => emp.employee);\n\n            frappe.call({\n                method: 'frappe.client.get_list',\n                args: {\n                    doctype: 'Employee',\n                    filters: { 'name': ['in', employee_ids] },  \n                    fields: ['name', 'employee_name']  // Fetch both Employee ID and Name\n                },\n                callback: function(response) {\n                    if (response.message) {\n                        let employee_details = response.message\n                            .map(emp => `${emp.name}: ${emp.employee_name}`)\n                            .join(',\\n');  // New line after comma\n\n                        frm.set_value('custom_reporting_manager_name', employee_details);\n                    } \n                }\n            });\n        } else {\n            frm.set_value('custom_reporting_manager_name', '');\n        }\n    }\n});\n",
+  "view": "Form"
+ }
+]
