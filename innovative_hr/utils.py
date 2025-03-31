@@ -18,6 +18,7 @@ def mark_attendance(date=None, shift=None):
         frappe.throw("Please specify a shift type.")
 
     shift_hours = frappe.db.get_value("Shift Type", shift, "custom_shift_hours")
+    OT_calculation_criteria = frappe.db.get_value("Shift Type", shift, "custom_overtime_calculate_criteria")
 
     # Retrieve all active employees
     active_employees = frappe.db.get_all(
@@ -134,13 +135,19 @@ def mark_attendance(date=None, shift=None):
             total_work_hours = float(total_work_hours)
 
             # Calculate Overtime
+            OT_calculation_criteria_seconds = OT_calculation_criteria * 60
+
+            # Calculate Overtime
             work_hours_timedelta = timedelta(hours=total_work_hours)
             if work_hours_timedelta > shift_hours:
                 diff = work_hours_timedelta - shift_hours
-                total_seconds = abs(diff.total_seconds())
-                hours, remainder = divmod(total_seconds, 3600)
-                minutes, seconds = divmod(remainder, 60)
-                final_OT = f"{int(hours):02}.{int(minutes):02}"
+                total_seconds = diff.total_seconds()
+
+                if total_seconds > OT_calculation_criteria_seconds:
+                    hours, remainder = divmod(total_seconds, 3600)
+                    minutes, seconds = divmod(remainder, 60)
+                    final_OT = f"{int(hours):02}.{int(minutes):02}"
+      
 
             # Calculate late entry, early exit
             half_day_hour = frappe.db.get_value('Shift Type', shift, 'working_hours_threshold_for_half_day')
