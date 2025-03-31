@@ -1,0 +1,136 @@
+{
+ "actions": [],
+ "allow_import": 1,
+ "allow_rename": 1,
+ "autoname": "format:GT-{date}-{#####}",
+ "creation": "2025-03-24 17:29:24.405378",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "date",
+  "in_time",
+  "out_time",
+  "visitor_name",
+  "phoneno",
+  "column_break_dbij",
+  "company",
+  "idtype",
+  "address",
+  "tomeet",
+  "hours"
+ ],
+ "fields": [
+  {
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "label": "Date"
+  },
+  {
+   "fieldname": "in_time",
+   "fieldtype": "Time",
+   "label": "In-Time"
+  },
+  {
+   "fieldname": "out_time",
+   "fieldtype": "Time",
+   "label": "Out-Time"
+  },
+  {
+   "fieldname": "visitor_name",
+   "fieldtype": "Data",
+   "label": "Visitor Name"
+  },
+  {
+   "fieldname": "phoneno",
+   "fieldtype": "Data",
+   "label": "PhoneNo"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Contractor Company"
+  },
+  {
+   "fieldname": "idtype",
+   "fieldtype": "Data",
+   "label": "IDType"
+  },
+  {
+   "fieldname": "address",
+   "fieldtype": "Data",
+   "label": "Address"
+  },
+  {
+   "fieldname": "tomeet",
+   "fieldtype": "Link",
+   "label": "ToMeet",
+   "options": "Department"
+  },
+  {
+   "fieldname": "column_break_dbij",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "hours",
+   "fieldtype": "Float",
+   "label": "Hours",
+   "precision": "2"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-03-24 17:48:48.800514",
+ "modified_by": "Administrator",
+ "module": "Innovative HR",
+ "name": "Getpass Entry",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "import": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "select": 1,
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "import": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR Manager",
+   "select": 1,
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "import": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR User",
+   "select": 1,
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}

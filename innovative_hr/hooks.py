@@ -137,7 +137,12 @@ override_doctype_class = {
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
+doc_events = {
+    'Employee Checkin': {
+        "before_save": "innovative_hr.public.py.custom_employee_checkin.before_save"
+    }
+}
+
 # 	"*": {
 # 		"on_update": "method",
 # 		"on_cancel": "method",
@@ -147,7 +152,16 @@ override_doctype_class = {
 
 # Scheduled Tasks
 # ---------------
-
+scheduler_events = {
+    "mark_attendance": {
+        "00 11 * * *": [
+            "innovative_hr.utils.schedule_mark_attendance"
+        ]
+    }
+    # "daily": [
+    #     "clevision.utils.get_last_sync_of_checkin"
+    # ]
+}
 # scheduler_events = {
 # 	"all": [
 # 		"innovative_hr.tasks.all"

@@ -2,12 +2,23 @@
  {
   "docstatus": 0,
   "doctype": "Client Script",
-  "dt": "Employee",
+  "dt": "Shift Type",
   "enabled": 1,
-  "modified": "2025-03-12 12:59:59.528175",
+  "modified": "2025-03-31 00:46:29.924587",
   "module": "Innovative HR",
-  "name": "Set reporting manager name",
-  "script": "frappe.ui.form.on('Employee', {\n    reports_to: function(frm) {\n        if (Array.isArray(frm.doc.reports_to) && frm.doc.reports_to.length) {\n            let employee_ids = frm.doc.reports_to.map(emp => emp.employee);\n\n            frappe.call({\n                method: 'frappe.client.get_list',\n                args: {\n                    doctype: 'Employee',\n                    filters: { 'name': ['in', employee_ids] },  \n                    fields: ['name', 'employee_name']  // Fetch both Employee ID and Name\n                },\n                callback: function(response) {\n                    if (response.message) {\n                        let employee_details = response.message\n                            .map(emp => `${emp.name}: ${emp.employee_name}`)\n                            .join(',\\n');  // New line after comma\n\n                        frm.set_value('custom_reporting_manager_name', employee_details);\n                    } \n                }\n            });\n        } else {\n            frm.set_value('custom_reporting_manager_name', '');\n        }\n    }\n});\n",
+  "name": "Calculate Shifthours",
+  "script": "frappe.ui.form.on('Shift Type', {\nstart_time: function (cur_frm, cdt, cdn) {\n    var d = locals[cdt][cdn];\n    var hours=0;\n    var minutes=0;\n    var seconds=0;\n    console.log(cdt, cdn, d.start_time, d.end_time, d.custom_shift_hours);\n\n    if (d.start_time && d.end_time) {\n        \n\t\t\n\t    var hour1 = d.start_time.split(':')[0];\n        var hour2 = d.end_time.split(':')[0];\n        var min1 = d.start_time.split(':')[1];\n        var min2 = d.end_time.split(':')[1];\n\t\tvar sec1 = d.start_time.split(':')[2];\n        var sec2 = d.end_time.split(':')[2];\n\t\t\n\t\tvar diff_hour = hour2 - hour1;\n\t\tvar diff_min = min2 - min1;\n\t\tvar diff_sec = sec2 - sec1;\n\t\t\n\t\tif (diff_hour<0) {\n            diff_hour+= 24;\n        }\n        if (diff_min<0) {\n            diff_min+=60;\n            diff_hour--;\n        }if(diff_min>=60){\n            diff_min-=60;\n            diff_hour++;\n        }\n        if (diff_sec<0) {\n            diff_sec+=60;\n            diff_min--;\n        } else if(diff_sec>=60){\n            diff_sec-=60;\n            diff_min++;\n        }\n\t\n        \n       frappe.model.set_value(cdt,cdn,\"custom_shift_hours\",diff_hour+\":\"+diff_min+\":\"+diff_sec);\n\t   frm.refresh_field(\"custom_shift_hours\");\n    }\n},\nend_time: function (cur_frm, cdt, cdn) {\n    var d = locals[cdt][cdn];\n    var hours=0;\n    var minutes=0;\n    var seconds=0;\n    console.log(cdt, cdn, d.start_time, d.end_time, d.custom_shift_hours);\n\n    if (d.start_time && d.end_time) {\n        \n\t\t\n\t    var hour1 = d.start_time.split(':')[0];\n        var hour2 = d.end_time.split(':')[0];\n        var min1 = d.start_time.split(':')[1];\n        var min2 = d.end_time.split(':')[1];\n\t\tvar sec1 = d.start_time.split(':')[2];\n        var sec2 = d.end_time.split(':')[2];\n\t\t\n\t\tvar diff_hour = hour2 - hour1;\n\t\tvar diff_min = min2 - min1;\n\t\tvar diff_sec = sec2 - sec1;\n\t\t\n\t\tif (diff_hour<0) {\n            diff_hour+= 24;\n        }\n        if (diff_min<0) {\n            diff_min+=60;\n            diff_hour--;\n        }if(diff_min>=60){\n            diff_min-=60;\n            diff_hour++;\n        }\n        if (diff_sec<0) {\n            diff_sec+=60;\n            diff_min--;\n        } else if(diff_sec>=60){\n            diff_sec-=60;\n            diff_min++;\n        }\n\t\t\n      frappe.model.set_value(cdt,cdn,\"custom_shift_hours\",diff_hour+\":\"+diff_min+\":\"+diff_sec);\n\t   frm.refresh_field(\"custom_shift_hours\");\n    }\n}\n\n\n});",
+  "view": "Form"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Client Script",
+  "dt": "Shift Type",
+  "enabled": 1,
+  "modified": "2025-03-31 06:54:31.547598",
+  "module": "Innovative HR",
+  "name": "Custom attendance via Get attendance button",
+  "script": "frappe.ui.form.on('Shift Type', {\n\trefresh:function(frm) {\n\n    // Hide Default Mark Attendance Button\n    $('[data-label=\"Mark%20Attendance\"]').hide();\n    \n    \n    frm.add_custom_button(__(\"Get Attendance\"), function() {\n        var from_date = frm.doc.process_attendance_after;\n        var shift = frm.doc.name;\n        var shift_type = frm.doc.type;\n        var batchSize = 3; \n\n        \n        frappe.call({\n            method: \"innovative_hr.utils.mark_attendance\",\n            args: {\n                \"date\": from_date,\n                \"shift\": shift,\n                freeze: true,\n                freeze_message: \"Please wait ..\"\n            },\n            callback: function(r) {\n                console.log(r)\n                var res = r.message;\n                res.forEach(function(message) {\n                    frappe.msgprint(message);\n                });\n               \n            }\n        });\n    });\n\t},\n\tprocess_attendance_after: function(frm) {\n        frm.save();\n    }\n\t\n});\n\n",
   "view": "Form"
  }
 ]
