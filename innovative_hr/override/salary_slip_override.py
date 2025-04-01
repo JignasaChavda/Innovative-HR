@@ -34,6 +34,7 @@ class SalarySlip(TransactionBase):
         max_working_hours = frappe.db.get_single_value(
             "Payroll Settings", "max_working_hours_against_timesheet"
         )
+        
         if max_working_hours:
             if self.salary_slip_based_on_timesheet and (self.total_working_hours > int(max_working_hours)):
                 frappe.msgprint(
@@ -42,6 +43,10 @@ class SalarySlip(TransactionBase):
                     ),
                     alert=True,
                 )
+        
+        self.calculate_overtime()
+        
+        
     def set_new_working_days(self):
         
         absent_days = 0.0
@@ -138,3 +143,22 @@ class SalarySlip(TransactionBase):
         self.total_working_days = duration_in_days
         self.absent_days = self.absent_days + absent_days
         self.payment_days = self.total_working_days - (self.leave_without_pay + self.absent_days)
+        
+    def calculate_overtime(self):
+        """
+        Method to Calculate Overtime based on the Attendance Records
+        """
+        try:
+            
+            emp_id = self.employee
+            start_date = self.start_date
+            end_date = self.end_date
+            
+            
+            total_overtime = frappe.db.get_value("Attendance", {"employee": emp_id, "attendance_date": ["between", (start_date, end_date)], "status": "Present"}, ["sum(custom_overtime)"])
+            
+            self.custom_ot_hours = total_overtime if total_overtime else 0.0
+            
+        except Exception as e: 
+            frappe.throw(str(e))
+            return {"error": 1, "message": str(e)}
