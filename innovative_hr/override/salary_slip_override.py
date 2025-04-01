@@ -157,7 +157,11 @@ class SalarySlip(TransactionBase):
             
             total_overtime = frappe.db.get_value("Attendance", {"employee": emp_id, "attendance_date": ["between", (start_date, end_date)], "status": "Present"}, ["sum(custom_overtime)"])
             
-            self.custom_ot_hours = total_overtime if total_overtime else 0.0
+            if total_overtime is not None:
+                rounded_overtime = round(total_overtime)  # round to 2 decimal places
+            else:
+                rounded_overtime = 0.0
+            self.custom_ot_hours = rounded_overtime
             
         except Exception as e: 
             frappe.throw(str(e))
