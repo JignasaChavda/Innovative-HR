@@ -126,20 +126,28 @@ def mark_attendance(date=None, shift=None):
 
             formatted_total_work_hours = f"{hours:02d}.{minutes:02d}"
 
-            
-            # frappe.msgprint(str(formatted_total_work_hours))
 
-           
+                
+                
 
-            # Ensure total_work_hours is converted properly before using
             total_work_hours = float(total_work_hours)
+
+            # Convert shift_hours to timedelta if it's not already
+            if isinstance(shift_hours, (int, float)):
+                shift_hours = timedelta(hours=shift_hours)
+
+            # Convert total_work_hours to timedelta
+            work_hours_timedelta = timedelta(hours=total_work_hours)
+
+            # Calculate Work Hours (should not exceed shift hours)
+            work_hours = min(work_hours_timedelta, shift_hours)
 
             # Calculate Overtime
             OT_calculation_criteria_seconds = OT_calculation_criteria * 60
 
-            # Calculate Overtime
-            work_hours_timedelta = timedelta(hours=total_work_hours)
-            if work_hours_timedelta > shift_hours:
+            emp_overtime_consent = frappe.db.get_value('Employee', emp_name, 'custom_overtime_applicable')
+
+            if emp_overtime_consent == 1 and work_hours_timedelta > shift_hours:
                 diff = work_hours_timedelta - shift_hours
                 total_seconds = diff.total_seconds()
 
@@ -147,6 +155,18 @@ def mark_attendance(date=None, shift=None):
                     hours, remainder = divmod(total_seconds, 3600)
                     minutes, seconds = divmod(remainder, 60)
                     final_OT = f"{int(hours):02}.{int(minutes):02}"
+                    
+                
+            # Convert work_hours to formatted string (hh.mm)
+            work_hours_hours, work_hours_remainder = divmod(work_hours.total_seconds(), 3600)
+            work_hours_minutes, _ = divmod(work_hours_remainder, 60)
+            final_work_hours = f"{int(work_hours_hours):02}.{int(work_hours_minutes):02}"
+
+            # Convert total_work_hours to formatted string (hh.mm)
+            total_hours_hours, total_hours_remainder = divmod(work_hours_timedelta.total_seconds(), 3600)
+            total_hours_minutes, _ = divmod(total_hours_remainder, 60)
+            final_total_hours = f"{int(total_hours_hours):02}.{int(total_hours_minutes):02}"
+
       
 
             # Calculate late entry, early exit
@@ -208,7 +228,8 @@ def mark_attendance(date=None, shift=None):
                 attendance.out_time = last_checkout_time
                 attendance.custom_employee_checkin = first_checkin["name"]
                 attendance.custom_employee_checkout = last_checkout["name"]
-                attendance.custom_work_hours = formatted_total_work_hours
+                attendance.custom_total_hours = final_total_hours
+                attendance.custom_work_hours = final_work_hours
                 attendance.custom_overtime = final_OT
                 attendance.status = att_status
                 attendance.custom_late_entry_hours = late_entry_hours_final
@@ -244,6 +265,7 @@ def mark_attendance(date=None, shift=None):
                     attendance.out_time = first_checkin_time
                     attendance.custom_employee_checkout = last_checkout["name"]
                     attendance.custom_remarks = 'No Checkin record found'
+                attendance.custom_total_hours = 0
                 attendance.custom_work_hours = 0
                 attendance.custom_overtime = 0
                 attendance.status = 'Absent'

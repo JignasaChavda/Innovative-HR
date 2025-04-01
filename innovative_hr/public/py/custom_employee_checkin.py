@@ -67,6 +67,7 @@ def before_save(self, method=None):
             for shift in shift_data:
                 if is_in_time_within_shift(date_time, shift["actual_start"], shift["grace_after_shift_start"]):
                     self.shift = shift["shift_name"]
+                    self.custom_shift_type = shift["shift_type"]
                     break
 
     elif self.log_type == "OUT":
@@ -75,7 +76,7 @@ def before_save(self, method=None):
             "employee": self.employee,
             "log_type": "IN",
             "custom_date": self.custom_date
-        }, fields=["name", "shift", "time"], order_by="time ASC", limit=1)
+        }, fields=["name", "shift", "custom_shift_type", "time"], order_by="time ASC", limit=1)
 
         if in_log:
             # Check if OUT log time is before 00:00:00
@@ -84,22 +85,33 @@ def before_save(self, method=None):
             
             if self.time <= midnight_time:
                 self.shift = in_log[0]["shift"]
-            
-        yesterday_in = frappe.get_all("Employee Checkin", filters={
-            "employee": self.employee,
-            "log_type": "IN",
-            "custom_date": yesterday_date
-        }, fields=["name", "shift", "time"], order_by="time ASC", limit=1)
+                self.custom_shift_type = in_log[0]["custom_shift_type"]
+               
 
-        
+        elif not in_log:
+            yesterday_in = frappe.get_all("Employee Checkin", filters={
+                "employee": self.employee,
+                "log_type": "IN",
+                "custom_date": yesterday_date,
+                "custom_shift_type": "Night"
+            }, fields=["name", "shift", "custom_shift_type", "time"], order_by="time ASC", limit=1)
 
-        if yesterday_in:
-            self.shift = yesterday_in[0]["shift"]
+            todays_out = frappe.get_all("Employee Checkin", filters={
+                "employee": self.employee,
+                "log_type": "OUT",
+                "custom_date": self.custom_date,
+                "custom_shift_type": "Night"
+            }, fields=["name", "shift", "custom_shift_type", "time"], order_by="time ASC", limit=1)
+
+            if yesterday_in and not todays_out:
+                self.shift = yesterday_in[0]["shift"]
+                self.custom_shift_type = yesterday_in[0]["custom_shift_type"]
         else:
             shift_data = get_shift_timings(today_date, yesterday_date)
 
             for shift in shift_data:
                 if is_in_time_within_shift(date_time, shift["grace_before_shift_end"], shift["actual_end"]):
                     self.shift = shift["shift_name"]
+                    self.custom_shift_type = shift["shift_type"]
                     break
 
