@@ -161,4 +161,3 @@ class SalarySlip(TransactionBase):
             
         except Exception as e: 
             frappe.throw(str(e))
-            return {"error": 1, "message": str(e)}
