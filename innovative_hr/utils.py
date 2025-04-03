@@ -24,7 +24,7 @@ def mark_attendance(date=None, shift=None):
     active_employees = frappe.db.get_all(
         "Employee",
         filters={"status": "Active"},
-        fields=["name", "date_of_joining"]
+        fields=["name", "date_of_joining", "employment_type"]
     )
 
     for emp in active_employees:
@@ -44,7 +44,7 @@ def mark_attendance(date=None, shift=None):
         last_checkout_time = None
         first_checkin_time = None
         formatted_total_work_hours = '0.0'
-        final_OT = '0.0'
+        total_OT = '0.0'
         att_early_exit = 0
         att_late_entry = 0
         late_entry_hours_final = '0'
@@ -139,33 +139,55 @@ def mark_attendance(date=None, shift=None):
             # Convert total_work_hours to timedelta
             work_hours_timedelta = timedelta(hours=total_work_hours)
 
-            # Calculate Work Hours (should not exceed shift hours)
+            # Work Hours (Capped at shift hours)
             work_hours = min(work_hours_timedelta, shift_hours)
 
-            # Calculate Overtime
+            # Convert OT calculation criteria to seconds
             OT_calculation_criteria_seconds = OT_calculation_criteria * 60
 
+            # Fetch employee overtime eligibility and show limit
             emp_overtime_consent = frappe.db.get_value('Employee', emp_name, 'custom_overtime_applicable')
+            show_ot_in_salslip = frappe.db.get_single_value('HR Settings', 'custom_show_overtime_in_salary_slip')
 
+            # Ensure show_ot_in_salslip is a valid number
+            show_ot_limit = float(show_ot_in_salslip) if show_ot_in_salslip else 0.0
+
+            # Initialize values
+            applicable_OT = "00.00"
+            remaining_OT = "00.00"
+
+            # Calculate Overtime if applicable
             if emp_overtime_consent == 1 and work_hours_timedelta > shift_hours:
-                diff = work_hours_timedelta - shift_hours
-                total_seconds = diff.total_seconds()
+                overtime_timedelta = work_hours_timedelta - shift_hours
+                total_OT_seconds = overtime_timedelta.total_seconds()
 
-                if total_seconds > OT_calculation_criteria_seconds:
-                    hours, remainder = divmod(total_seconds, 3600)
-                    minutes, seconds = divmod(remainder, 60)
-                    final_OT = f"{int(hours):02}.{int(minutes):02}"
-                    
-                
-            # Convert work_hours to formatted string (hh.mm)
+                if total_OT_seconds > OT_calculation_criteria_seconds:
+                    # Convert overtime to hours and minutes
+                    OT_hours, OT_remainder = divmod(total_OT_seconds, 3600)
+                    OT_minutes, _ = divmod(OT_remainder, 60)
+                    total_OT = OT_hours + (OT_minutes / 60)  # Convert to decimal format
+
+                    # Ensure OT does not exceed the allowed limit
+                    if total_OT > show_ot_limit:
+                        applicable_OT = f"{int(show_ot_limit):02}.00"
+                        remaining_OT_hours = int(total_OT - show_ot_limit)
+                        remaining_OT_minutes = round((total_OT - show_ot_limit - remaining_OT_hours) * 60)
+                        remaining_OT = f"{remaining_OT_hours:02}.{remaining_OT_minutes:02}"
+                    else:
+                        applicable_OT = f"{int(OT_hours):02}.{int(OT_minutes):02}"
+
+            # Convert work_hours to HH.MM format
             work_hours_hours, work_hours_remainder = divmod(work_hours.total_seconds(), 3600)
             work_hours_minutes, _ = divmod(work_hours_remainder, 60)
             final_work_hours = f"{int(work_hours_hours):02}.{int(work_hours_minutes):02}"
 
-            # Convert total_work_hours to formatted string (hh.mm)
+            # Convert total_work_hours to HH.MM format
             total_hours_hours, total_hours_remainder = divmod(work_hours_timedelta.total_seconds(), 3600)
             total_hours_minutes, _ = divmod(total_hours_remainder, 60)
             final_total_hours = f"{int(total_hours_hours):02}.{int(total_hours_minutes):02}"
+
+            # Convert total_OT to HH.MM format
+            formatted_total_ot = f"{int(OT_hours):02}.{int(OT_minutes):02}"
 
       
 
@@ -230,7 +252,11 @@ def mark_attendance(date=None, shift=None):
                 attendance.custom_employee_checkout = last_checkout["name"]
                 attendance.custom_total_hours = final_total_hours
                 attendance.custom_work_hours = final_work_hours
-                attendance.custom_overtime = final_OT
+                if emp.employment_type == "Worker":
+                    attendance.custom_overtime = applicable_OT
+                    attendance.custom_remaining_overtime = remaining_OT
+                elif emp.employment_type == "Contract":
+                    attendance.custom_total_overtime = formatted_total_ot
                 attendance.status = att_status
                 attendance.custom_late_entry_hours = late_entry_hours_final
                 attendance.custom_early_exit_hours = early_exit_hours_final
@@ -268,6 +294,8 @@ def mark_attendance(date=None, shift=None):
                 attendance.custom_total_hours = 0
                 attendance.custom_work_hours = 0
                 attendance.custom_overtime = 0
+                attendance.custom_remaining_overtime = 0
+                attendance.custom_total_overtime = 0
                 attendance.status = 'Absent'
                 attendance.custom_late_entry_hours = 0
                 attendance.custom_early_exit_hours = 0
