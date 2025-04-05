@@ -209,10 +209,10 @@ def mark_attendance(date=None, shift=None):
 
             final_total_hours = f"{int(total_hours_hours):02}.00"
 
-            frappe.msgprint(f"Work Hours {final_work_hours}")
-            frappe.msgprint(f"Total Hours {final_total_hours}")
-            frappe.msgprint(f"Applicable Hours {applicable_OT}")
-            frappe.msgprint(f"Remaining Hours {remaining_OT}")
+            # frappe.msgprint(f"Work Hours {final_work_hours}")
+            # frappe.msgprint(f"Total Hours {final_total_hours}")
+            # frappe.msgprint(f"Applicable Hours {applicable_OT}")
+            # frappe.msgprint(f"Remaining Hours {remaining_OT}")
 
           
 

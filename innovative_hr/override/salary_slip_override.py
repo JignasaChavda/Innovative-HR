@@ -32,7 +32,7 @@ class SalarySlip(TransactionBase):
         self.compute_component_wise_year_to_date()
 
         self.add_leave_balances()
-        self.generate_additional_salary()
+        
 
         max_working_hours = frappe.db.get_single_value(
             "Payroll Settings", "max_working_hours_against_timesheet"
@@ -48,7 +48,8 @@ class SalarySlip(TransactionBase):
                 )
         
         
-        
+    def after_insert(self):
+        self.generate_additional_salary()
         
     def set_new_working_days(self):
         
