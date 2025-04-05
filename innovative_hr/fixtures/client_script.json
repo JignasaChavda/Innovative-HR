@@ -20,5 +20,16 @@
   "name": "Custom attendance via Get attendance button",
   "script": "frappe.ui.form.on('Shift Type', {\n\trefresh:function(frm) {\n\n    // Hide Default Mark Attendance Button\n    $('[data-label=\"Mark%20Attendance\"]').hide();\n    \n    \n    frm.add_custom_button(__(\"Get Attendance\"), function() {\n        var from_date = frm.doc.process_attendance_after;\n        var shift = frm.doc.name;\n        var shift_type = frm.doc.type;\n        var batchSize = 3; \n\n        \n        frappe.call({\n            method: \"innovative_hr.utils.mark_attendance\",\n            args: {\n                \"date\": from_date,\n                \"shift\": shift,\n                freeze: true,\n                freeze_message: \"Please wait ..\"\n            },\n            callback: function(r) {\n                console.log(r)\n                var res = r.message;\n                res.forEach(function(message) {\n                    frappe.msgprint(message);\n                });\n               \n            }\n        });\n    });\n\t},\n\tprocess_attendance_after: function(frm) {\n        frm.save();\n    }\n\t\n});\n\n",
   "view": "Form"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Client Script",
+  "dt": "Employee Incentive",
+  "enabled": 1,
+  "modified": "2025-04-05 11:11:14.088063",
+  "module": "Innovative HR",
+  "name": "Update Incentive Payable Amount based on the deduction",
+  "script": "frappe.ui.form.on('Employee Incentive', {\n\tcustom_deduction:function(frm) {\n\t\tvar incentive = frm.doc.incentive_amount;\n\t\tvar ded = frm.doc.custom_deduction;\n\t\t\n\t    var incentive_payable = incentive - ded;\n\t    frm.set_value('custom_incentive_payable', incentive_payable);\n\t    frm.refresh_field('custom_incentive_payable');\n\t    frm.save();\n\t\t\n\t},\n\tincentive_amount:function(frm) {\n\t\tvar incentive = frm.doc.incentive_amount;\n\t\tvar ded = frm.doc.custom_deduction;\n\t\t\n\t    var incentive_payable = incentive - ded;\n\t    frm.set_value('custom_incentive_payable', incentive_payable);\n\t    frm.refresh_field('custom_incentive_payable');\n\t    frm.save();\n\t\t\n\t}\n})",
+  "view": "Form"
  }
 ]

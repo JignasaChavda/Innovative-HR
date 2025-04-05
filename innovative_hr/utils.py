@@ -165,29 +165,56 @@ def mark_attendance(date=None, shift=None):
                     # Convert overtime to hours and minutes
                     OT_hours, OT_remainder = divmod(total_OT_seconds, 3600)
                     OT_minutes, _ = divmod(OT_remainder, 60)
-                    total_OT = OT_hours + (OT_minutes / 60)  # Convert to decimal format
+
+                    # Apply rounding rule
+                    if OT_minutes >= 30:
+                        OT_hours += 1
+                        OT_minutes = 0
+                    else:
+                        OT_minutes = 0
+
+                    total_OT = OT_hours  # Only integer hours considered
 
                     # Ensure OT does not exceed the allowed limit
                     if total_OT > show_ot_limit:
                         applicable_OT = f"{int(show_ot_limit):02}.00"
                         remaining_OT_hours = int(total_OT - show_ot_limit)
-                        remaining_OT_minutes = round((total_OT - show_ot_limit - remaining_OT_hours) * 60)
-                        remaining_OT = f"{remaining_OT_hours:02}.{remaining_OT_minutes:02}"
+                        remaining_OT = f"{remaining_OT_hours:02}.00"
                     else:
-                        applicable_OT = f"{int(OT_hours):02}.{int(OT_minutes):02}"
+                        applicable_OT = f"{int(OT_hours):02}.00"
 
             # Convert work_hours to HH.MM format
             work_hours_hours, work_hours_remainder = divmod(work_hours.total_seconds(), 3600)
             work_hours_minutes, _ = divmod(work_hours_remainder, 60)
-            final_work_hours = f"{int(work_hours_hours):02}.{int(work_hours_minutes):02}"
+
+            # Apply rounding rule
+            if work_hours_minutes >= 30:
+                work_hours_hours += 1
+                work_hours_minutes = 0
+            else:
+                work_hours_minutes = 0
+
+            final_work_hours = f"{int(work_hours_hours):02}.00"
 
             # Convert total_work_hours to HH.MM format
             total_hours_hours, total_hours_remainder = divmod(work_hours_timedelta.total_seconds(), 3600)
             total_hours_minutes, _ = divmod(total_hours_remainder, 60)
-            final_total_hours = f"{int(total_hours_hours):02}.{int(total_hours_minutes):02}"
 
-            # Convert total_OT to HH.MM format
-            formatted_total_ot = f"{int(OT_hours):02}.{int(OT_minutes):02}"
+            # Apply rounding rule
+            if total_hours_minutes >= 30:
+                total_hours_hours += 1
+                total_hours_minutes = 0
+            else:
+                total_hours_minutes = 0
+
+            final_total_hours = f"{int(total_hours_hours):02}.00"
+
+            frappe.msgprint(f"Work Hours {final_work_hours}")
+            frappe.msgprint(f"Total Hours {final_total_hours}")
+            frappe.msgprint(f"Applicable Hours {applicable_OT}")
+            frappe.msgprint(f"Remaining Hours {remaining_OT}")
+
+          
 
       
 
@@ -255,8 +282,6 @@ def mark_attendance(date=None, shift=None):
                 if emp.employment_type == "Worker":
                     attendance.custom_overtime = applicable_OT
                     attendance.custom_remaining_overtime = remaining_OT
-                elif emp.employment_type == "Contract":
-                    attendance.custom_total_overtime = formatted_total_ot
                 attendance.status = att_status
                 attendance.custom_late_entry_hours = late_entry_hours_final
                 attendance.custom_early_exit_hours = early_exit_hours_final
@@ -295,7 +320,6 @@ def mark_attendance(date=None, shift=None):
                 attendance.custom_work_hours = 0
                 attendance.custom_overtime = 0
                 attendance.custom_remaining_overtime = 0
-                attendance.custom_total_overtime = 0
                 attendance.status = 'Absent'
                 attendance.custom_late_entry_hours = 0
                 attendance.custom_early_exit_hours = 0
