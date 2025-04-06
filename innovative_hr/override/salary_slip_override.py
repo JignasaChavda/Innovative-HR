@@ -229,47 +229,51 @@ class SalarySlip(TransactionBase):
             holiday_list = frappe.db.get_value("Employee", self.employee, "holiday_list")
             per_day_wage = frappe.db.get_value('Employee', self.employee, 'custom_per_day_wages')
             per_hour_wage = frappe.db.get_value('Employee', self.employee, 'custom_per_hour_wages')
-
-            # For Remaining Overtime
+            
             try:
-                # Check for existing draft Employee Incentive
-                existing_remaining_ot_incentive = frappe.get_all(
-                    "Employee Incentive",
-                    filters={
-                        "employee": self.employee,
-                        "custom_reference_salary_slip": self.name,
-                        "custom_incentive_paid_for": "Remaining Overtime",
-                        "docstatus": 0  # Only consider draft records
-                    },
-                    fields=["name"]
-                )
-
-                if existing_remaining_ot_incentive:
-                    # Update the existing draft incentive
-                    incentive_doc = frappe.get_doc("Employee Incentive", existing_remaining_ot_incentive[0].name)
-                    incentive_doc.custom_posting_date = today()
-                    incentive_doc.custom_include_in_salary_slip = 0
-                    incentive_doc.custom_remaining_overtime_hours = self.custom_remaining_overtime
-                    incentive_doc.salary_component = "Remaining Overtime Payment"
-                    incentive_doc.incentive_amount = round(per_hour_wage * self.custom_remaining_overtime)
-                    incentive_doc.custom_incentive_payable = round(per_hour_wage * self.custom_remaining_overtime)
-                    incentive_doc.save(ignore_permissions=True)
-                else:
-                    # Create new Employee Incentive
-                    for_remaining_ot = frappe.new_doc("Employee Incentive")
-                    for_remaining_ot.employee = self.employee
-                    for_remaining_ot.custom_posting_date = today()
-                    for_remaining_ot.custom_include_in_salary_slip = 0
-                    for_remaining_ot.custom_incentive_paid_for = "Remaining Overtime"
-                    for_remaining_ot.custom_remaining_overtime_hours = self.custom_remaining_overtime
-                    for_remaining_ot.salary_component = "Remaining Overtime Payment"
-                    for_remaining_ot.incentive_amount = round(per_hour_wage * self.custom_remaining_overtime)
-                    for_remaining_ot.custom_incentive_payable = round(per_hour_wage * self.custom_remaining_overtime)
-                    for_remaining_ot.custom_reference_salary_slip = self.name
-                    for_remaining_ot.insert(ignore_permissions=True)
+                if self.custom_remaining_overtime:
+                    # For Remaining Overtime
+                    remaining_ot_incentive = 0
+                    # Check for existing draft Employee Incentive
+                    existing_remaining_ot_incentive = frappe.get_all(
+                        "Employee Incentive",
+                        filters={
+                            "employee": self.employee,
+                            "custom_reference_salary_slip": self.name,
+                            "custom_incentive_paid_for": "Remaining Overtime",
+                            "docstatus": 0  # Only consider draft records
+                        },
+                        fields=["name"]
+                    )
+                    remaining_ot_incentive = round(per_hour_wage * self.custom_remaining_overtime)
+                    if existing_remaining_ot_incentive:
+                        # Update the existing draft incentive
+                        incentive_doc = frappe.get_doc("Employee Incentive", existing_remaining_ot_incentive[0].name)
+                        incentive_doc.custom_posting_date = today()
+                        incentive_doc.custom_include_in_salary_slip = 0
+                        incentive_doc.custom_remaining_overtime_hours = self.custom_remaining_overtime
+                        incentive_doc.salary_component = "Remaining Overtime Payment"
+                        incentive_doc.incentive_amount = remaining_ot_incentive
+                        incentive_doc.custom_incentive_payable = remaining_ot_incentive
+                        incentive_doc.save(ignore_permissions=True)
+                    else:
+                        # Create new Employee Incentive
+                        for_remaining_ot = frappe.new_doc("Employee Incentive")
+                        for_remaining_ot.employee = self.employee
+                        for_remaining_ot.custom_posting_date = today()
+                        for_remaining_ot.custom_include_in_salary_slip = 0
+                        for_remaining_ot.custom_incentive_paid_for = "Remaining Overtime"
+                        for_remaining_ot.custom_remaining_overtime_hours = self.custom_remaining_overtime
+                        for_remaining_ot.salary_component = "Remaining Overtime Payment"
+                        for_remaining_ot.incentive_amount = remaining_ot_incentive
+                        for_remaining_ot.custom_incentive_payable = remaining_ot_incentive
+                        for_remaining_ot.custom_reference_salary_slip = self.name
+                        for_remaining_ot.insert(ignore_permissions=True)
 
             except Exception as e:
                 frappe.throw(str(e))
+
+            
 
 
             # For Weekoff Payment
