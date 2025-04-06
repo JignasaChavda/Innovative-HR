@@ -24,12 +24,13 @@ def mark_attendance(date=None, shift=None):
     active_employees = frappe.db.get_all(
         "Employee",
         filters={"status": "Active"},
-        fields=["name", "date_of_joining", "employment_type"]
+        fields=["name", "date_of_joining", "employment_type", "holiday_list"]
     )
 
     for emp in active_employees:
         emp_name = emp["name"]
         emp_joining_date = emp["date_of_joining"]
+        holiday_list = emp["holiday_list"]
 
         # Skip if the employee's joining date is after the attendance date
         if emp_joining_date and emp_joining_date > yesterday_date:
@@ -208,6 +209,24 @@ def mark_attendance(date=None, shift=None):
                 total_hours_minutes = 0
 
             final_total_hours = f"{int(total_hours_hours):02}.00"
+
+            # === Holiday Check ===
+            # Assuming 'date' is the date being processed (datetime.date object)
+            # Assuming 'holiday_list' is the name of the Holiday List assigned to the employee
+            # Assuming 'remaining_OT' is already initialized or tracked elsewhere
+
+            holiday = frappe.db.exists('Holiday', {
+                'holiday_date': date,
+                'parent': holiday_list,
+                'weekly_off': 0  # General holiday only
+            })
+
+            if holiday:
+                # Add total work hours as OT (on general holiday)
+                remaining_OT_hours = float(final_total_hours)
+                applicable_OT = 0
+                remaining_OT = f"{remaining_OT_hours:02.2f}"
+
 
             # frappe.msgprint(f"Work Hours {final_work_hours}")
             # frappe.msgprint(f"Total Hours {final_total_hours}")
