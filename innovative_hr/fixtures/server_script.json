@@ -28,13 +28,13 @@
   "doctype_event": "Before Save",
   "enable_rate_limit": 0,
   "event_frequency": "All",
-  "modified": "2025-04-06 18:26:36.125944",
+  "modified": "2025-04-06 18:57:08.017381",
   "module": "Innovative HR",
   "name": "Update Overtime amount in salary slip",
   "rate_limit_count": 5,
   "rate_limit_seconds": 86400,
   "reference_doctype": "Salary Slip",
-  "script": "applicable_ot = doc.custom_applicable_overtime\nper_hour_wage = frappe.db.get_value('Employee', doc.employee, 'custom_per_hour_wages')\n\nif applicable_ot and per_hour_wage:\n    overtime_payment = applicable_ot * per_hour_wage\n    component_found = False\n\n    for row in doc.earnings:\n        if row.salary_component == \"Overtime Payment\":\n            row.amount = overtime_payment\n            component_found = True\n            break\n\n    if not component_found:\n        doc.append(\"earnings\", {\n            \"salary_component\": \"Overtime Payment\",\n            \"amount\": overtime_payment\n        })\n",
+  "script": "applicable_ot = doc.custom_applicable_overtime\nper_hour_wage = frappe.db.get_value('Employee', doc.employee, 'custom_per_hour_wages')\n\nif applicable_ot and per_hour_wage:\n    overtime_payment = round(applicable_ot * per_hour_wage)\n    component_found = False\n\n    for row in doc.earnings:\n        if row.salary_component == \"Overtime Payment\":\n            row.amount = overtime_payment\n            component_found = True\n            break\n\n    if not component_found:\n        doc.append(\"earnings\", {\n            \"salary_component\": \"Overtime Payment\",\n            \"amount\": overtime_payment\n        })\n",
   "script_type": "DocType Event"
  }
 ]
