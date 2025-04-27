@@ -130,7 +130,8 @@ app_license = "mit"
 # Override standard doctype classes
 
 override_doctype_class = {
-	"Salary Slip": "innovative_hr.override.salary_slip_override.SalarySlip"
+	"Salary Slip": "innovative_hr.override.salary_slip_override.SalarySlip",
+    "Attendance": "innovative_hr.override.attendance_override.Attendance"
 }
 
 # Document Events
@@ -139,7 +140,11 @@ override_doctype_class = {
 
 doc_events = {
     'Employee Checkin': {
-        "before_save": "innovative_hr.public.py.custom_employee_checkin.before_save"
+        "before_save": "innovative_hr.public.py.custom_employee_checkin.before_save",
+        "on_update": "innovative_hr.public.py.custom_employee_checkin.on_update"
+    },
+    'Attendance':{
+        "on_update_after_submit": "innovative_hr.public.py.custom_attendance.before_save"
     }
 }
 
@@ -148,7 +153,7 @@ doc_events = {
 # 		"on_cancel": "method",
 # 		"on_trash": "method"
 # 	}
-# }
+# 
 
 # Scheduled Tasks
 # ---------------

@@ -52,66 +52,111 @@ def before_save(self, method=None):
     today_date = date_time.date()
     yesterday_date = add_days(date_time.date(), -1)
 
-    if self.log_type == "IN":
-        # Check if an IN log already exists for the day
-        first_log = frappe.get_all("Employee Checkin", filters={
+    # Determine IN/OUT based on shift logic
+    first_log = frappe.get_all("Employee Checkin", filters={
+        "employee": self.employee,
+        "log_type": "IN",
+        "custom_date": self.custom_date
+    }, order_by="time ASC", limit=1)
+
+    if not first_log:
+       
+        night_in_yesterday = frappe.get_all("Employee Checkin", filters={
             "employee": self.employee,
-            "log_type": "IN",
-            "custom_date": self.custom_date
-        }, order_by="time ASC", limit=1)
+            "custom_date": yesterday_date,
+            "custom_shift_type": "Night",
+            "log_type": "IN"
+        }, fields=["name", "shift", "custom_shift_type", "time"], limit=1)
 
-        if not first_log:  # If no IN log exists, it's the first log of the day
-            
+        night_out_today = frappe.get_all("Employee Checkin", filters={
+            "employee": self.employee,
+            "custom_date": today_date,
+            "custom_shift_type": "Night",
+            "log_type": "OUT"
+        }, limit=1)
+
+        if night_in_yesterday and not night_out_today:
+            # Set current log as OUT for the night shift
+            self.shift = night_in_yesterday[0]["shift"]
+            self.log_type = "OUT"
+            self.custom_shift_type = night_in_yesterday[0]["custom_shift_type"]
+        else:
             shift_data = get_shift_timings(today_date, yesterday_date)
-
             for shift in shift_data:
                 if is_in_time_within_shift(date_time, shift["actual_start"], shift["grace_after_shift_start"]):
                     self.shift = shift["shift_name"]
+                    self.log_type = 'IN'
                     self.custom_shift_type = shift["shift_type"]
                     break
-
-    elif self.log_type == "OUT":
-        # Check if an IN log exists for the same day
-        in_log = frappe.get_all("Employee Checkin", filters={
+    else:
+       
+        
+        # Get all IN logs for the day
+        in_logs = frappe.get_all("Employee Checkin", filters={
             "employee": self.employee,
             "log_type": "IN",
             "custom_date": self.custom_date
-        }, fields=["name", "shift", "custom_shift_type", "time"], order_by="time ASC", limit=1)
+        }, fields=["name", "shift", "custom_shift_type", "time"], order_by="time ASC")
+        
+        # Get all OUT logs for the day
+        out_logs = frappe.get_all("Employee Checkin", filters={
+            "employee": self.employee,
+            "log_type": "OUT",
+            "custom_date": self.custom_date
+        }, fields=["name", "shift", "custom_shift_type", "time"], order_by="time ASC")
 
-        if in_log:
-            # Check if OUT log time is before 00:00:00
-            midnight_time = get_datetime(f"{self.custom_date} 23:59:59")
-            
-            
-            if self.time <= midnight_time:
-                self.shift = in_log[0]["shift"]
-                self.custom_shift_type = in_log[0]["custom_shift_type"]
-               
+        matched = False
+        
+        if in_logs:
+            for in_log in in_logs:
+                # Find the first OUT log which is after this IN log and for same shift
+                corresponding_out = None
+                for out_log in out_logs:
+                    if out_log["shift"] == in_log["shift"] and out_log["time"] > in_log["time"]:
+                        corresponding_out = out_log
+                        break
 
-        elif not in_log:
-            yesterday_in = frappe.get_all("Employee Checkin", filters={
-                "employee": self.employee,
-                "log_type": "IN",
-                "custom_date": yesterday_date,
-                "custom_shift_type": "Night"
-            }, fields=["name", "shift", "custom_shift_type", "time"], order_by="time ASC", limit=1)
+                if not corresponding_out:
+                    # No OUT found yet for this IN
+                    midnight_time = get_datetime(f"{self.custom_date} 23:59:59")
+                    if self.time <= midnight_time:
+                        self.shift = in_log["shift"]
+                        self.log_type = "OUT"
+                        self.custom_shift_type = in_log["custom_shift_type"]
+                        matched = True
+                        break
 
-            todays_out = frappe.get_all("Employee Checkin", filters={
-                "employee": self.employee,
-                "log_type": "OUT",
-                "custom_date": self.custom_date,
-                "custom_shift_type": "Night"
-            }, fields=["name", "shift", "custom_shift_type", "time"], order_by="time ASC", limit=1)
-
-            if yesterday_in and not todays_out:
-                self.shift = yesterday_in[0]["shift"]
-                self.custom_shift_type = yesterday_in[0]["custom_shift_type"]
-        else:
+        if not matched:
+            # No matching IN-OUT, so it must be a fresh IN entry
             shift_data = get_shift_timings(today_date, yesterday_date)
-
             for shift in shift_data:
-                if is_in_time_within_shift(date_time, shift["grace_before_shift_end"], shift["actual_end"]):
+                if is_in_time_within_shift(date_time, shift["actual_start"], shift["grace_after_shift_start"]):
                     self.shift = shift["shift_name"]
+                    self.log_type = 'IN'
                     self.custom_shift_type = shift["shift_type"]
                     break
 
+
+def on_update(self, method=None):
+    date_time = get_datetime(self.time)
+
+    # Perform the deletion AFTER the current document has been saved
+    last_log = frappe.get_all("Employee Checkin", filters={
+        "employee": self.employee,
+        "name": ["!=", self.name]
+    }, fields=["name", "time", "shift"], order_by="time DESC", limit=1)
+
+    if last_log:
+        last_log_time = get_datetime(last_log[0]["time"])
+        last_shift = (last_log[0].get("shift") or "").strip()
+        current_shift = (self.shift or "").strip()
+        # frappe.msgprint(str(last_shift))
+        # frappe.msgprint(str(current_shift))
+
+        if (
+            date_time.time().hour == last_log_time.time().hour and
+            date_time.time().minute == last_log_time.time().minute and
+            date_time.time().second != last_log_time.time().second and
+            last_shift == current_shift
+        ):
+            frappe.delete_doc("Employee Checkin", self.name)

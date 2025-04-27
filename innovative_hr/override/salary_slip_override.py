@@ -23,8 +23,9 @@ class SalarySlip(TransactionBase):
             self.get_working_days_details(lwp=self.leave_without_pay)
 
         self.set_new_working_days()
-        # self.calculate_overtime()
+        self.calculate_overtime()
         self.set_salary_structure_assignment()
+        self.validate_employee_incentive()
         if self.is_new():
             self.calculate_net_pay()
         self.compute_year_to_date()
@@ -49,7 +50,7 @@ class SalarySlip(TransactionBase):
         
         
     def after_insert(self):
-        self.generate_additional_salary()
+        self.generate_employee_incentive()
         
     def set_new_working_days(self):
         
@@ -81,7 +82,18 @@ class SalarySlip(TransactionBase):
                     },
                     pluck="holiday_date"
                 )
-            duration_in_days = duration_in_days-len(holidays)
+            
+            weekoffplusholidays = frappe.get_all(
+                    "Holiday",
+                    filters={
+                        "parent": holiday_list,
+                        "holiday_date": ["between", [start_date, end_date]],
+                        "weekly_off": 1,
+                        "custom_is_holiday": 1
+                    },
+                    pluck="holiday_date"
+                )
+            duration_in_days = duration_in_days-len(holidays)+len(weekoffplusholidays)
                
         if emp_type in ["Staff", "Staff Trainee"]:
             duration_in_days = duration_in_days
@@ -156,53 +168,71 @@ class SalarySlip(TransactionBase):
     def calculate_overtime(self):
         """
         Method to Calculate Overtime based on the Attendance Records,
-        excluding holidays.
+        mapping attendance dates with the holiday list to consider holidays and weekoffs separately.
         """
         try:
             emp_id = self.employee
             emp_type = self.custom_employment_type
             start_date = self.start_date
             end_date = self.end_date
-
-            # Get list of holidays for the employee's holiday list
+            
+            # Get list of holidays and weekoffs for the employee's holiday list
             holiday_dates = frappe.get_all("Holiday", 
                 filters={
-                    "holiday_date": ["between", [start_date, end_date]],
-                    "weekly_off": 1,
+                    "holiday_date": ["between", [start_date, end_date]]
                 },
-                fields=["holiday_date"]
+                fields=["holiday_date", "custom_is_holiday", "weekly_off"]
             )
-            holiday_list = [d.holiday_date for d in holiday_dates]
 
-            # Common filters excluding holidays
-            filters = {
-                "employee": emp_id,
-                "attendance_date": ["between", [start_date, end_date]],
-                "status": "Present",
-                "attendance_date": ["not in", holiday_list] if holiday_list else ["between", [start_date, end_date]]
-            }
+            # Create a dictionary to map dates to holiday types
+            holiday_mapping = {}
+            for d in holiday_dates:
+                holiday_mapping[d.holiday_date] = {
+                    "custom_is_holiday": d.custom_is_holiday,
+                    "weekly_off": d.weekly_off
+                }
 
             if emp_type == 'Worker':
-                # Fetch attendance records manually and sum values
+                # Fetch attendance records
                 records = frappe.get_all("Attendance",
                     filters={
                         "employee": emp_id,
                         "status": "Present",
-                        "attendance_date": ["between", [start_date, end_date]]
+                        "attendance_date": ["between", [start_date, end_date]],
+                        "docstatus": 1
                     },
-                    fields=["custom_overtime", "custom_remaining_overtime", "attendance_date"]
+                    fields=["custom_overtime", "custom_remaining_overtime", "attendance_date", "custom_total_hours"]
                 )
 
                 applicable_ot = 0
                 remaining_ot = 0
-                for row in records:
-                    if row.attendance_date not in holiday_list:
-                        applicable_ot += row.custom_overtime or 0
-                        remaining_ot += row.custom_remaining_overtime or 0
 
+                for row in records:
+                    attendance_date = row.attendance_date
+
+                    # Check if the attendance date is in the holiday_mapping
+                    if attendance_date in holiday_mapping:
+                        holiday_info = holiday_mapping[attendance_date]
+
+                        if holiday_info["custom_is_holiday"] == 1:
+                            # If it's a custom holiday, overtime goes into remaining
+                            remaining_ot += (row.custom_total_hours or 0)
+                        # elif holiday_info["weekly_off"] != 1 or holiday_info["custom_is_holiday"] != 1:
+                        #     applicable_ot += (row.custom_overtime or 0)
+                        #     remaining_ot += (row.custom_remaining_overtime or 0)
+                        # else:
+                        #     # If it's a normal working day (not holiday, not weekoff)
+                        #     applicable_ot += (row.custom_overtime or 0)
+                        #     remaining_ot += (row.custom_remaining_overtime or 0)
+                    else:
+                        
+                        # If it's a normal working day (not a holiday or weekoff)
+                        applicable_ot += (row.custom_overtime or 0)
+                        remaining_ot += (row.custom_remaining_overtime or 0)
+
+                # Set the calculated overtime values
                 self.custom_applicable_overtime = applicable_ot
                 self.custom_remaining_overtime = remaining_ot
-
             elif emp_type == 'Contract':
                 # Fetch total worked hours excluding holidays
                 records = frappe.get_all("Attendance",
@@ -223,31 +253,30 @@ class SalarySlip(TransactionBase):
 
         except Exception as e:
             frappe.throw(str(e))
-    
-    def generate_additional_salary(self):
+
+    def validate_employee_incentive(self):
         if self.custom_employment_type == "Worker":
             holiday_list = frappe.db.get_value("Employee", self.employee, "holiday_list")
             per_day_wage = frappe.db.get_value('Employee', self.employee, 'custom_per_day_wages')
             per_hour_wage = frappe.db.get_value('Employee', self.employee, 'custom_per_hour_wages')
-            
+
+            # Check for existing remaining overtime incentive
             try:
                 if self.custom_remaining_overtime:
-                    # For Remaining Overtime
                     remaining_ot_incentive = 0
-                    # Check for existing draft Employee Incentive
+                    remaining_ot_incentive = round(per_hour_wage * self.custom_remaining_overtime) 
+
                     existing_remaining_ot_incentive = frappe.get_all(
                         "Employee Incentive",
                         filters={
                             "employee": self.employee,
                             "custom_reference_salary_slip": self.name,
                             "custom_incentive_paid_for": "Remaining Overtime",
-                            "docstatus": 0  # Only consider draft records
+                            "docstatus": 0 
                         },
                         fields=["name"]
                     )
-                    remaining_ot_incentive = round(per_hour_wage * self.custom_remaining_overtime)
                     if existing_remaining_ot_incentive:
-                        # Update the existing draft incentive
                         incentive_doc = frappe.get_doc("Employee Incentive", existing_remaining_ot_incentive[0].name)
                         incentive_doc.custom_posting_date = today()
                         incentive_doc.custom_include_in_salary_slip = 0
@@ -256,27 +285,191 @@ class SalarySlip(TransactionBase):
                         incentive_doc.incentive_amount = remaining_ot_incentive
                         incentive_doc.custom_incentive_payable = remaining_ot_incentive
                         incentive_doc.save(ignore_permissions=True)
-                    else:
-                        # Create new Employee Incentive
-                        for_remaining_ot = frappe.new_doc("Employee Incentive")
-                        for_remaining_ot.employee = self.employee
-                        for_remaining_ot.custom_posting_date = today()
-                        for_remaining_ot.custom_include_in_salary_slip = 0
-                        for_remaining_ot.custom_incentive_paid_for = "Remaining Overtime"
-                        for_remaining_ot.custom_remaining_overtime_hours = self.custom_remaining_overtime
-                        for_remaining_ot.salary_component = "Remaining Overtime Payment"
-                        for_remaining_ot.incentive_amount = remaining_ot_incentive
-                        for_remaining_ot.custom_incentive_payable = remaining_ot_incentive
-                        for_remaining_ot.custom_reference_salary_slip = self.name
-                        for_remaining_ot.insert(ignore_permissions=True)
+            except Exception as e:
+                frappe.throw(str(e))
+
+            # Check for existing weekoff incentive
+            try:
+                total_weekoff_wage = 0
+                weekoff_count = 0 
+
+                if holiday_list:
+                    weekoff_dates = frappe.get_all("Holiday",
+                        filters={
+                            "parent": holiday_list,
+                            "weekly_off": 1,
+                            "holiday_date": ["between", [self.start_date, self.end_date]]
+                        },
+                        fields=["holiday_date"]
+                    )
+                    weekoff_dates = [d.holiday_date for d in weekoff_dates]
+
+                    if weekoff_dates:
+                        worked_on_weekoff = frappe.get_all("Attendance",
+                            filters={
+                                "employee": self.employee,
+                                "status": ["in", ["Present", "Half Day"]],
+                                "attendance_date": ["in", weekoff_dates],
+                                "docstatus": 1
+                            },
+                            fields=["name", "attendance_date", "status", "custom_work_hours", "custom_total_hours"]
+                        )
+                        
+                        for att in worked_on_weekoff:
+                            total_hours = float(att.custom_total_hours or 0)
+                            work_hours = float(att.custom_work_hours or 0)
+
+                            if att.status == "Present":
+                                weekoff_count += 1
+                                if total_hours > work_hours:
+                                    extra_hours = total_hours - work_hours
+                                    wage = per_day_wage + (per_hour_wage * extra_hours)
+                                else:
+                                    wage = per_day_wage
+                            elif att.status == "Half Day":
+                                weekoff_count += 0.5
+                                wage = per_day_wage / 2
+                            else:
+                                wage = 0
+
+                            total_weekoff_wage += wage
+                            
+
+                        total_weekoff_wage = round(total_weekoff_wage)
+                        
+
+                        if weekoff_count > 0:
+                            existing_weekoff_incentive = frappe.get_all(
+                                "Employee Incentive",
+                                filters={
+                                    "employee": self.employee,
+                                    "custom_reference_salary_slip": self.name,
+                                    "custom_incentive_paid_for": "Worked on WeekOff",
+                                    "custom_worked_weekoff_count": [">", 0],
+                                    "docstatus": 0 
+                                },
+                                fields=["name"]
+                            )
+
+                            if existing_weekoff_incentive:
+                                incentive_doc = frappe.get_doc("Employee Incentive", existing_weekoff_incentive[0].name)
+                                incentive_doc.custom_posting_date = today()
+                                incentive_doc.custom_include_in_salary_slip = 0
+                                incentive_doc.custom_worked_weekoff_count = weekoff_count
+                                incentive_doc.salary_component = "WeekOff Incentive"
+                                incentive_doc.incentive_amount = total_weekoff_wage
+                                incentive_doc.custom_incentive_payable = total_weekoff_wage
+                                incentive_doc.save(ignore_permissions=True)
+
+            except Exception as e:
+                frappe.throw(str(e))
+
+                
+            
+            # Check for existing general holiday incentive
+            try:
+                total_holiday_wage = 0
+                holiday_count = 0  # <-- To track total equivalent weekoff days worked
+
+                if holiday_list:
+                    # Get dates marked as weekoff in the holiday list
+                    holiday_dates = frappe.get_all("Holiday",
+                        filters={
+                            "parent": holiday_list,
+                            "custom_is_holiday": 1,
+                            "weekly_off": 0,
+                            "holiday_date": ["between", [self.start_date, self.end_date]]
+                        },
+                        fields=["holiday_date"]
+                    )
+                    holiday_dates = [d.holiday_date for d in holiday_dates]
+
+                    # Check attendance records on weekoff dates
+                    if holiday_dates:
+                        worked_on_holiday = frappe.get_all("Attendance",
+                            filters={
+                                "employee": self.employee,
+                                "status": ["in", ["Present", "Half Day"]],
+                                "attendance_date": ["in", holiday_dates],
+                                "docstatus": 1
+                            },
+                            fields=["name", "attendance_date", "status", "custom_work_hours", "custom_total_hours"]
+                        )
+                        
+                        for att in worked_on_holiday:
+                            total_hours = float(att.custom_total_hours or 0)
+                            work_hours = float(att.custom_work_hours or 0)
+
+                            # Count logic: Present = 1, Half Day = 0.5
+                            if att.status == "Present":
+                                holiday_count += 1
+                                wage = per_day_wage
+                            elif att.status == "Half Day":
+                                holiday_count += 0.5
+                                wage = per_day_wage / 2
+                            else:
+                                wage = 0
+
+                            total_holiday_wage += wage
+
+                        total_holiday_wage = round(total_holiday_wage)
+
+                    existing_holiday_incentive = frappe.db.exists(
+                        "Employee Incentive",
+                        {
+                            "employee": self.employee,
+                            "custom_reference_salary_slip": self.name,
+                            "custom_incentive_paid_for": "Worked on Holiday",
+                            "custom_worked_holiday_count": [">", 0],
+                            "docstatus": 0 
+                        }
+                    )
+                    if existing_holiday_incentive:
+                        incentive_doc = frappe.get_doc("Employee Incentive", existing_holiday_incentive[0].name)
+                        incentive_doc.custom_posting_date = today()
+                        incentive_doc.custom_include_in_salary_slip = 0
+                        incentive_doc.custom_worked_holiday_count = holiday_count
+                        incentive_doc.salary_component = "WeekOff Incentive"
+                        incentive_doc.incentive_amount = total_holiday_wage
+                        incentive_doc.custom_incentive_payable = total_holiday_wage
+                        incentive_doc.save(ignore_permissions=True)
+
+
+            except Exception as e:
+                frappe.throw(str(e))
+
+
+
+
+    def generate_employee_incentive(self):
+        if self.custom_employment_type == "Worker":
+            holiday_list = frappe.db.get_value("Employee", self.employee, "holiday_list")
+            per_day_wage = frappe.db.get_value('Employee', self.employee, 'custom_per_day_wages')
+            per_hour_wage = frappe.db.get_value('Employee', self.employee, 'custom_per_hour_wages')
+            
+            # Generate new remaining overtime payment incentive
+            try:
+                if self.custom_remaining_overtime:
+                    remaining_ot_incentive = 0
+                    remaining_ot_incentive = round(per_hour_wage * self.custom_remaining_overtime)                        
+                 
+                    for_remaining_ot = frappe.new_doc("Employee Incentive")
+                    for_remaining_ot.employee = self.employee
+                    for_remaining_ot.custom_posting_date = today()
+                    for_remaining_ot.custom_include_in_salary_slip = 0
+                    for_remaining_ot.custom_incentive_paid_for = "Remaining Overtime"
+                    for_remaining_ot.custom_remaining_overtime_hours = self.custom_remaining_overtime
+                    for_remaining_ot.salary_component = "Remaining Overtime Payment"
+                    for_remaining_ot.incentive_amount = remaining_ot_incentive
+                    for_remaining_ot.custom_incentive_payable = remaining_ot_incentive
+                    for_remaining_ot.custom_reference_salary_slip = self.name
+                    for_remaining_ot.insert(ignore_permissions=True)
 
             except Exception as e:
                 frappe.throw(str(e))
 
             
-
-
-            # For Weekoff Payment
+            # Generate new weekoff payment incentive
             try:
                 total_weekoff_wage = 0
                 weekoff_count = 0  # <-- To track total equivalent weekoff days worked
@@ -326,124 +519,94 @@ class SalarySlip(TransactionBase):
                             total_weekoff_wage += wage
 
                         total_weekoff_wage = round(total_weekoff_wage)
+                        
 
-                        if weekoff_count > 0:
-                            # Check if a draft Employee Incentive already exists
-                            existing_weekoff_incentive = frappe.get_all(
-                                "Employee Incentive",
-                                filters={
-                                    "employee": self.employee,
-                                    "custom_reference_salary_slip": self.name,
-                                    "custom_incentive_paid_for": "Worked on WeekOff",
-                                    "docstatus": 0  # Only draft
-                                },
-                                fields=["name"]
-                            )
+                        if weekoff_count > 0:  
 
-                            if existing_weekoff_incentive:
-                                # Update existing draft
-                                incentive_doc = frappe.get_doc("Employee Incentive", existing_weekoff_incentive[0].name)
-                                incentive_doc.custom_posting_date = today()
-                                incentive_doc.custom_include_in_salary_slip = 0
-                                incentive_doc.custom_worked_weekoff_count = weekoff_count
-                                incentive_doc.salary_component = "WeekOff Incentive"
-                                incentive_doc.incentive_amount = total_weekoff_wage
-                                incentive_doc.custom_incentive_payable = total_weekoff_wage
-                                incentive_doc.save(ignore_permissions=True)
-                            else:
-                                # Create new incentive
-                                for_weekoff = frappe.new_doc("Employee Incentive")
-                                for_weekoff.employee = self.employee
-                                for_weekoff.custom_posting_date = today()
-                                for_weekoff.custom_include_in_salary_slip = 0
-                                for_weekoff.custom_incentive_paid_for = "Worked on WeekOff"
-                                for_weekoff.custom_worked_weekoff_count = weekoff_count
-                                for_weekoff.salary_component = "WeekOff Incentive"
-                                for_weekoff.incentive_amount = total_weekoff_wage
-                                for_weekoff.custom_incentive_payable = total_weekoff_wage
-                                for_weekoff.custom_reference_salary_slip = self.name
-                                for_weekoff.insert(ignore_permissions=True)
+                            # Create new incentive
+                            for_weekoff = frappe.new_doc("Employee Incentive")
+                            for_weekoff.employee = self.employee
+                            for_weekoff.custom_posting_date = today()
+                            for_weekoff.custom_include_in_salary_slip = 0
+                            for_weekoff.custom_incentive_paid_for = "Worked on WeekOff"
+                            for_weekoff.custom_worked_weekoff_count = weekoff_count
+                            for_weekoff.salary_component = "WeekOff Incentive"
+                            for_weekoff.incentive_amount = total_weekoff_wage
+                            for_weekoff.custom_incentive_payable = total_weekoff_wage
+                            for_weekoff.custom_reference_salary_slip = self.name
+                            for_weekoff.insert(ignore_permissions=True)
 
             except Exception as e:
                 frappe.throw(str(e))
 
             
 
-            # # For General Holiday Payment
-            # try:
-            #     total_holiday_wage = 0
-            #     holiday_count = 0  # <-- To track total equivalent weekoff days worked
+            # Generate new general holiday payment incentive
+            try:
 
-            #     if holiday_list:
-            #         # Get dates marked as weekoff in the holiday list
-            #         holiday_dates = frappe.get_all("Holiday",
-            #             filters={
-            #                 "parent": holiday_list,
-            #                 "weekly_off": 0,
-            #                 "holiday_date": ["between", [self.start_date, self.end_date]]
-            #             },
-            #             fields=["holiday_date"]
-            #         )
-            #         holiday_dates = [d.holiday_date for d in holiday_dates]
+                total_holiday_wage = 0
+                holiday_count = 0  # <-- To track total equivalent weekoff days worked
 
-            #         # Check attendance records on weekoff dates
-            #     if holiday_dates:
-            #         worked_on_holiday = frappe.get_all("Attendance",
-            #             filters={
-            #                 "employee": self.employee,
-            #                 "status": ["in", ["Present", "Half Day"]],
-            #                 "attendance_date": ["in", holiday_dates],
-            #                 "docstatus": 1
-            #             },
-            #             fields=["name", "attendance_date", "status", "custom_work_hours", "custom_total_hours"]
-            #         )
+                if holiday_list:
+                    # Get dates marked as weekoff in the holiday list
+                    holiday_dates = frappe.get_all("Holiday",
+                        filters={
+                            "parent": holiday_list,
+                            "custom_is_holiday": 1,
+                            "weekly_off": 0,
+                            "holiday_date": ["between", [self.start_date, self.end_date]]
+                        },
+                        fields=["holiday_date"]
+                    )
+                    holiday_dates = [d.holiday_date for d in holiday_dates]
 
-            #         total_holiday_hours = 0
-            #         holiday_count = 0
-            #         total_holiday_wage = 0
+                    # Check attendance records on weekoff dates
+                    if holiday_dates:
+                        worked_on_holiday = frappe.get_all("Attendance",
+                            filters={
+                                "employee": self.employee,
+                                "status": ["in", ["Present", "Half Day"]],
+                                "attendance_date": ["in", holiday_dates],
+                                "docstatus": 1
+                            },
+                            fields=["name", "attendance_date", "status", "custom_work_hours", "custom_total_hours"]
+                        )
+                        
+                        for att in worked_on_holiday:
+                            total_hours = float(att.custom_total_hours or 0)
+                            work_hours = float(att.custom_work_hours or 0)
 
-            #         for att in worked_on_holiday:
-            #             total_hours = float(att.custom_total_hours or 0)
-            #             work_hours = float(att.custom_work_hours or 0)
+                            # Count logic: Present = 1, Half Day = 0.5
+                            if att.status == "Present":
+                                holiday_count += 1
+                                wage = per_day_wage
+                            elif att.status == "Half Day":
+                                holiday_count += 0.5
+                                wage = per_day_wage / 2
+                            else:
+                                wage = 0
 
-            #             # Accumulate total holiday hours
-            #             total_holiday_hours += total_hours
+                            total_holiday_wage += wage
 
-            #             if att.status == "Present":
-            #                 holiday_count += 1
-            #             elif att.status == "Half Day":
-            #                 holiday_count += 0.5
+                        total_holiday_wage = round(total_holiday_wage)
 
-            #         # Calculate wage based on total hours worked
-            #         total_holiday_wage = round(total_holiday_hours * per_hour_wage)
-
-            #         # Check if incentive already exists
-            #         existing_holiday_incentive = frappe.db.exists(
-            #             "Employee Incentive",
-            #             {
-            #                 "employee": self.employee,
-            #                 "custom_reference_salary_slip": self.name,
-            #                 "custom_incentive_paid_for": "Worked on Holiday"
-            #             }
-            #         )
-            #         if not existing_holiday_incentive and weekoff_count > 0:
-            #             for_holiday = frappe.new_doc("Employee Incentive")
-            #             for_holiday.employee = self.employee
-            #             for_holiday.custom_posting_date = today()
-            #             for_holiday.custom_include_in_salary_slip = 0
-            #             for_holiday.custom_incentive_paid_for = "Worked on Holiday"
-            #             for_holiday.custom_worked_holiday_count = holiday_count  # includes 0.5 for Half Day
-            #             for_holiday.custom_total_hours_worked = total_holiday_hours  # Optional: if you want to track this
-            #             for_holiday.salary_component = "Holiday Incentive"
-            #             for_holiday.incentive_amount = total_holiday_wage
-            #             for_holiday.custom_incentive_payable = total_holiday_wage
-            #             for_holiday.custom_reference_salary_slip = self.name
-
-            #             for_holiday.insert(ignore_permissions=True)
+                        if holiday_count > 0:  
+                            # Create new incentive
+                            for_weekoff = frappe.new_doc("Employee Incentive")
+                            for_weekoff.employee = self.employee
+                            for_weekoff.custom_posting_date = today()
+                            for_weekoff.custom_include_in_salary_slip = 0
+                            for_weekoff.custom_incentive_paid_for = "Worked on WeekOff"
+                            for_weekoff.custom_worked_holiday_count = holiday_count
+                            for_weekoff.salary_component = "WeekOff Incentive"
+                            for_weekoff.incentive_amount = total_holiday_wage
+                            for_weekoff.custom_incentive_payable = total_holiday_wage
+                            for_weekoff.custom_reference_salary_slip = self.name
+                            for_weekoff.insert(ignore_permissions=True)
 
 
-            # except Exception as e:
-            #     frappe.throw(str(e))
+            except Exception as e:
+                frappe.throw(str(e))
 
 
 
