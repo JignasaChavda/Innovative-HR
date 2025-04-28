@@ -28,7 +28,7 @@ def mark_attendance(date=None, shift=None):
         filters={"status": "Active"},
         fields=["name", "employee_name", "date_of_joining", "employment_type", "holiday_list"]
     )
-
+    
     final_messages = []
     existing_attendances = []
 
@@ -49,6 +49,8 @@ def mark_attendance(date=None, shift=None):
         # frappe.msgprint(str(emp))
         emp_name = emp["name"]
         emp_full_name = emp["employee_name"]
+        emp_type = emp["employment_type"]
+        
         emp_joining_date = emp.get("date_of_joining")
         holiday_list = emp.get("holiday_list")
 
@@ -92,6 +94,7 @@ def mark_attendance(date=None, shift=None):
                         first_checkin_time = single_in_record['time']
                         results[emp_name].append({
                             'emp_name': emp_name,
+                            'emp_type': emp_type,
                             'date': date,
                             'shift': single_in_record['shift'],
                             'first_checkin': single_in_record['name'],
@@ -127,6 +130,7 @@ def mark_attendance(date=None, shift=None):
                         first_checkin_time = single_in_record['time']
                         results[emp_name].append({
                             'emp_name': emp_name,
+                            'emp_type': emp_type,
                             'date': date,
                             'shift': single_in_record['shift'],
                             'first_checkin': single_in_record['name'],
@@ -185,6 +189,7 @@ def mark_attendance(date=None, shift=None):
                                     # Append the record to the employee's list in the results dictionary
                                     results[emp_name].append({
                                         'emp_name': emp_name,
+                                        'emp_type': emp_type,
                                         'date': date,
                                         'shift': first_shift_in['shift'],
                                         'first_checkin': first_checkin,
@@ -242,6 +247,7 @@ def mark_attendance(date=None, shift=None):
                                     # Append the record to the employee's list in the results dictionary
                                     results[emp_name].append({
                                         'emp_name': emp_name,
+                                        'emp_type': emp_type,
                                         'date': date,
                                         'shift': first_shift_in['shift'],
                                         'first_checkin': first_checkin,
@@ -255,11 +261,14 @@ def mark_attendance(date=None, shift=None):
         for result in emp_results:
             # frappe.msgprint(f"Employee: {result['emp_name']}, Date: {result['date']}, Shift: {result['shift']}, First Check-in time: {result['first_checkin_time']}, Last Checkout time: {result['last_checkout_time']}, first_checkin {result['first_checkin']}, last_checkout {result['last_checkout']}")
             
+            
             first_checkin = result.get('first_checkin')
             last_checkout = result.get('last_checkout')
             first_checkin_time = result.get('first_checkin_time')
             last_checkout_time = result.get('last_checkout_time')
+            employment_type = result.get('emp_type')
             shift = result.get('shift')
+            shift_type = frappe.db.get_value('Shift Type', result.get('shift'), 'custom_shift_type')
             shift_hours = frappe.db.get_value('Shift Type', result.get('shift'), 'custom_shift_hours')
             
             OT_calculation_criteria = frappe.db.get_single_value('HR Settings', 'custom_show_overtime_in_salary_slip')
@@ -451,7 +460,8 @@ def mark_attendance(date=None, shift=None):
                     attendance.custom_employee_checkout = last_checkout
                     attendance.custom_total_hours = final_total_hours
                     attendance.custom_work_hours = final_work_hours
-                    if emp.employment_type == "Worker":
+                    
+                    if employment_type == "Worker": 
                         attendance.custom_overtime = applicable_OT
                         attendance.custom_remaining_overtime = remaining_OT
                     attendance.status = att_status

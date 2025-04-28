@@ -609,4 +609,3 @@ class SalarySlip(TransactionBase):
                 frappe.throw(str(e))
 
 
-

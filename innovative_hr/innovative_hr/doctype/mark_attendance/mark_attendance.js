@@ -33,4 +33,3 @@ frappe.ui.form.on('Mark Attendance', {
         frm.save();
     }
 });
-
