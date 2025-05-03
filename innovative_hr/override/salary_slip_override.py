@@ -203,6 +203,7 @@ class SalarySlip(TransactionBase):
                     },
                     fields=["custom_overtime", "custom_remaining_overtime", "attendance_date", "custom_total_hours"]
                 )
+                frappe.msgprint(str(records))
 
                 applicable_ot = 0
                 remaining_ot = 0
