@@ -205,11 +205,11 @@ class SalarySlip(TransactionBase):
                 for row in records:
                     if row.attendance_date in holiday_dates:
                         continue  # Skip if it's a holiday or weekoff
-
+                    frappe.msgprint(str(row.attendance_date))
                     # Count OT only for working days
                     applicable_ot += (row.custom_overtime or 0)
                     remaining_ot += (row.custom_remaining_overtime or 0)
-
+        
                 # Set the calculated overtime values
                 self.custom_applicable_overtime = applicable_ot
                 self.custom_remaining_overtime = remaining_ot
