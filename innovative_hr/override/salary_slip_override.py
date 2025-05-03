@@ -198,7 +198,6 @@ class SalarySlip(TransactionBase):
                     },
                     fields=["custom_overtime", "custom_remaining_overtime", "attendance_date", "custom_total_hours"]
                 )
-                frappe.msgprint(str(records))
 
                 applicable_ot = 0
                 remaining_ot = 0
@@ -211,34 +210,6 @@ class SalarySlip(TransactionBase):
                     applicable_ot += (row.custom_overtime or 0)
                     remaining_ot += (row.custom_remaining_overtime or 0)
 
-<<<<<<< Updated upstream
-                    # Check if the attendance date is not in the holiday_mapping
-                    if attendance_date not in holiday_dates:
-                        frappe.msgprint(str(attendance_date))
-                        applicable_ot += (row.custom_overtime or 0)
-                        remaining_ot += (row.custom_remaining_overtime or 0)
-
-                       
-                    #     holiday_info = holiday_mapping[attendance_date]
-
-                    #     if holiday_info["custom_is_holiday"] == 1 or holiday_info["weekly_off"] == 1:
-                    #         pass
-                    #         # If it's a custom holiday, overtime goes into remaining
-                    #         # remaining_ot += (row.custom_total_hours or 0)
-                    #     # elif holiday_info["weekly_off"] != 1 or holiday_info["custom_is_holiday"] != 1:
-                    #     #     applicable_ot += (row.custom_overtime or 0)
-                    #     #     remaining_ot += (row.custom_remaining_overtime or 0)
-                    #     # else:
-                    #     #     # If it's a normal working day (not holiday, not weekoff)
-                    #     #     applicable_ot += (row.custom_overtime or 0)
-                    #     #     remaining_ot += (row.custom_remaining_overtime or 0)
-                    # else:
-                        
-                    #     # If it's a normal working day (not a holiday or weekoff)
-                        
-                
-=======
->>>>>>> Stashed changes
                 # Set the calculated overtime values
                 self.custom_applicable_overtime = applicable_ot
                 self.custom_remaining_overtime = remaining_ot
