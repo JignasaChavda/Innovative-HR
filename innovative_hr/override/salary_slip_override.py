@@ -175,22 +175,17 @@ class SalarySlip(TransactionBase):
             emp_type = self.custom_employment_type
             start_date = self.start_date
             end_date = self.end_date
-            
-            # Get list of holidays and weekoffs for the employee's holiday list
-            holiday_dates = frappe.get_all("Holiday", 
+
+            # Get list of holidays and weekly offs
+            holiday_entries = frappe.get_all("Holiday", 
                 filters={
                     "holiday_date": ["between", [start_date, end_date]]
                 },
                 fields=["holiday_date", "custom_is_holiday", "weekly_off"]
             )
 
-            # Create a dictionary to map dates to holiday types
-            holiday_mapping = {}
-            for d in holiday_dates:
-                holiday_mapping[d.holiday_date] = {
-                    "custom_is_holiday": d.custom_is_holiday,
-                    "weekly_off": d.weekly_off
-                }
+            # Create a set of all dates that are holidays or weekoffs
+            holiday_dates = {h.holiday_date for h in holiday_entries if h.custom_is_holiday or h.weekly_off}
 
             if emp_type == 'Worker':
                 # Fetch attendance records
@@ -209,8 +204,14 @@ class SalarySlip(TransactionBase):
                 remaining_ot = 0
 
                 for row in records:
-                    attendance_date = row.attendance_date
+                    if row.attendance_date in holiday_dates:
+                        continue  # Skip if it's a holiday or weekoff
 
+                    # Count OT only for working days
+                    applicable_ot += (row.custom_overtime or 0)
+                    remaining_ot += (row.custom_remaining_overtime or 0)
+
+<<<<<<< Updated upstream
                     # Check if the attendance date is not in the holiday_mapping
                     if attendance_date not in holiday_dates:
                         frappe.msgprint(str(attendance_date))
@@ -236,9 +237,12 @@ class SalarySlip(TransactionBase):
                     #     # If it's a normal working day (not a holiday or weekoff)
                         
                 
+=======
+>>>>>>> Stashed changes
                 # Set the calculated overtime values
                 self.custom_applicable_overtime = applicable_ot
                 self.custom_remaining_overtime = remaining_ot
+
             elif emp_type == 'Contract':
                 # Fetch total worked hours excluding holidays
                 records = frappe.get_all("Attendance",
