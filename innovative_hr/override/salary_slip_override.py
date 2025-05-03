@@ -12,7 +12,7 @@ class SalarySlip(TransactionBase):
         self.validate_dates()
         self.check_existing()
         
-
+ 
         if self.payroll_frequency:
             self.get_date_details()
 
