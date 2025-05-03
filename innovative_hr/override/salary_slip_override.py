@@ -212,7 +212,7 @@ class SalarySlip(TransactionBase):
                     attendance_date = row.attendance_date
 
                     # Check if the attendance date is not in the holiday_mapping
-                    if attendance_date not in holiday_mapping:
+                    if attendance_date not in holiday_dates:
                         frappe.msgprint(str(attendance_date))
                         applicable_ot += (row.custom_overtime or 0)
                         remaining_ot += (row.custom_remaining_overtime or 0)
