@@ -172,6 +172,7 @@ class SalarySlip(TransactionBase):
         """
         try:
             emp_id = self.employee
+            holiday_list = frappe.db.get_value('Employee', emp_id, 'holiday_list')
             emp_type = self.custom_employment_type
             start_date = self.start_date
             end_date = self.end_date
@@ -179,13 +180,15 @@ class SalarySlip(TransactionBase):
             # Get list of holidays and weekly offs
             holiday_entries = frappe.get_all("Holiday", 
                 filters={
-                    "holiday_date": ["between", [start_date, end_date]]
+                    "holiday_date": ["between", [start_date, end_date]],
+                    'parent': holiday_list
                 },
                 fields=["holiday_date", "custom_is_holiday", "weekly_off"]
             )
 
-            # Create a set of all dates that are holidays or weekoffs
-            holiday_dates = {h.holiday_date for h in holiday_entries if h.custom_is_holiday or h.weekly_off}
+            # Create a set of holiday dates (both custom holidays and weekly offs)
+            holiday_dates = {h["holiday_date"] for h in holiday_entries if h["custom_is_holiday"] or h["weekly_off"]}
+            
 
             if emp_type == 'Worker':
                 # Fetch attendance records
@@ -201,15 +204,15 @@ class SalarySlip(TransactionBase):
 
                 applicable_ot = 0
                 remaining_ot = 0
-
+                
                 for row in records:
-                    if row.attendance_date in holiday_dates:
-                        continue  # Skip if it's a holiday or weekoff
-                    frappe.msgprint(str(row.attendance_date))
-                    # Count OT only for working days
-                    applicable_ot += (row.custom_overtime or 0)
-                    remaining_ot += (row.custom_remaining_overtime or 0)
-        
+                    attendance_date = row["attendance_date"]
+                    if attendance_date not in holiday_dates:
+                        
+                        applicable_ot += (row["custom_overtime"] or 0)
+                        remaining_ot += (row["custom_remaining_overtime"] or 0)
+                   
+
                 # Set the calculated overtime values
                 self.custom_applicable_overtime = applicable_ot
                 self.custom_remaining_overtime = remaining_ot
