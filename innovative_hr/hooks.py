@@ -143,10 +143,11 @@ doc_events = {
         "before_save": "innovative_hr.public.py.custom_employee_checkin.before_save",
         "on_update": "innovative_hr.public.py.custom_employee_checkin.on_update"
     },
-    'Attendance':{
-        "before_save": "innovative_hr.public.py.custom_attendance.before_save"
+    # 'Attendance':{
+    #     # "on_update_after_submit": "innovative_hr.public.py.custom_attendance.update_attendance",
+    #     "before_save": "innovative_hr.public.py.custom_attendance.update_attendance"
 
-    }
+    # }
 }
 
 # 	"*": {

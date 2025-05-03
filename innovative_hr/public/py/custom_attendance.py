@@ -2,8 +2,9 @@ from datetime import datetime, timedelta
 import frappe
 from frappe.utils import add_days, get_time, time_diff
 
-
-def before_save(self, method=None):
+@frappe.whitelist(allow_guest=True)
+def update_attendance(attendance_name):
+    doc = frappe.get_doc("Attendance", attendance_name)
     
     first_checkin = None
     last_checkout = None
@@ -17,23 +18,24 @@ def before_save(self, method=None):
     early_exit_hours_final = '0'
     att_remarks = ''
     
-
-    date = self.attendance_date
+    
+    
+    date = doc.attendance_date
     if isinstance(date, str):
         date = datetime.strptime(date, "%Y-%m-%d").date()
 
     yesterday_date = date - timedelta(days=1)
     tomorrow_date = date + timedelta(days=1)
 
-    emp = self.employee
-    date = self.attendance_date
+    emp = doc.employee
+    date = doc.attendance_date
     holiday_list = frappe.db.get_value('Employee', emp, 'holiday_list')
-    first_checkin_time = self.in_time
+    first_checkin_time = doc.in_time
     first_in_time = get_time(first_checkin_time) if first_checkin_time else None
     
-    last_checkout_time = self.out_time
+    last_checkout_time = doc.out_time
     last_out_time = get_time(last_checkout_time) if last_checkout_time else None
-    shift = self.shift
+    shift = doc.shift
     shift_hours = frappe.db.get_value("Shift Type", shift, "custom_shift_hours")
     shift_type = frappe.db.get_value("Shift Type", shift, "custom_shift_type")
     OT_calculation_criteria = frappe.db.get_value("Shift Type", shift, "custom_overtime_calculate_criteria")
@@ -209,18 +211,19 @@ def before_save(self, method=None):
             att_status = 'Absent'
 
         # Update the attendance
-        self.shift = shift
-        self.in_time = first_checkin_time
-        self.out_time = last_checkout_time
-        self.custom_total_hours = final_total_hours
-        self.custom_work_hours = final_work_hours
-        if self.custom_employment_type == "Worker":
-            self.custom_overtime = applicable_OT
-            self.custom_remaining_overtime = remaining_OT
-        self.status = att_status
-        self.custom_late_entry_hours = late_entry_hours_final
-        self.custom_early_exit_hours = early_exit_hours_final
-        self.late_entry = att_late_entry
-        self.early_exit = att_early_exit
-        self.custom_remarks = att_remarks
+        doc.shift = shift
+        doc.in_time = first_checkin_time
+        doc.out_time = last_checkout_time
+        doc.custom_total_hours = final_total_hours
+        doc.custom_work_hours = final_work_hours
+        if doc.custom_employment_type == "Worker":
+            doc.custom_overtime = applicable_OT
+            doc.custom_remaining_overtime = remaining_OT
+        doc.status = att_status
+        # doc.custom_late_entry_hours = late_entry_hours_final
+        # doc.custom_early_exit_hours = early_exit_hours_final
+        # doc.late_entry = att_late_entry
+        # doc.early_exit = att_early_exit
+        doc.custom_remarks = att_remarks
+        doc.save()
     

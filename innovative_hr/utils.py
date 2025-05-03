@@ -521,8 +521,8 @@ def mark_attendance(date=None, shift=None):
                     existing_attendances.append(f'Employee {emp_name}-{emp_full_name} for Date {formatted_date}: {attendance_link} \n')
                 else:
                     
+                    
                     attendance = frappe.new_doc("Attendance")
-                    attendance.flags.skip_custom_logic = True
                     attendance.employee = emp_name
                     attendance.attendance_date = date
                     attendance.shift = shift
@@ -536,10 +536,10 @@ def mark_attendance(date=None, shift=None):
                         attendance.custom_overtime = applicable_OT
                         attendance.custom_remaining_overtime = remaining_OT
                     attendance.status = att_status
-                    attendance.custom_late_entry_hours = late_entry_hours_final
-                    attendance.custom_early_exit_hours = early_exit_hours_final
-                    attendance.late_entry = att_late_entry
-                    attendance.early_exit = att_early_exit
+                    # attendance.custom_late_entry_hours = late_entry_hours_final
+                    # attendance.custom_early_exit_hours = early_exit_hours_final
+                    # attendance.late_entry = att_late_entry
+                    # attendance.early_exit = att_early_exit
                     attendance.custom_remarks = att_remarks
 
                     attendance.insert(ignore_permissions=True)
@@ -556,8 +556,8 @@ def mark_attendance(date=None, shift=None):
                     existing_attendances.append(f'Employee {emp_name}-{emp_full_name} for Date {formatted_date}: {attendance_link} \n')
                     
                 else:
+                    
                     attendance = frappe.new_doc("Attendance")
-                    attendance.flags.skip_custom_logic = True
                     attendance.employee = emp_name
                     attendance.attendance_date = date
                     attendance.shift = shift
@@ -575,10 +575,10 @@ def mark_attendance(date=None, shift=None):
                     attendance.custom_overtime = 0
                     attendance.custom_remaining_overtime = 0
                     attendance.status = 'Mispunch'
-                    attendance.custom_late_entry_hours = 0
-                    attendance.custom_early_exit_hours = 0
-                    attendance.late_entry = 0
-                    attendance.early_exit = 0
+                    # attendance.custom_late_entry_hours = 0
+                    # attendance.custom_early_exit_hours = 0
+                    # attendance.late_entry = 0
+                    # attendance.early_exit = 0
                     
 
                     attendance.insert(ignore_permissions=True)
