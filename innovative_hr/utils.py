@@ -48,6 +48,7 @@ def mark_attendance(date=None, shift=None):
     for emp in active_employees:
         # frappe.msgprint(str(emp))
         emp_name = emp["name"]
+        emp_type = emp["employment_type"]
         emp_full_name = emp["employee_name"]
         emp_joining_date = emp.get("date_of_joining")
         holiday_list = emp.get("holiday_list")
@@ -70,7 +71,7 @@ def mark_attendance(date=None, shift=None):
             # Separate IN and OUT records
             in_records = [record for record in checkin_records if record['log_type'] == "IN"]
             out_records = [record for record in checkin_records if record['log_type'] == "OUT"]
-        
+            
             # Ensure the employee's dictionary entry exists
             if emp_name not in results:
                 results[emp_name] = []
@@ -79,7 +80,8 @@ def mark_attendance(date=None, shift=None):
                 if len(in_records) == 1:
                     single_in_record = in_records[0]
                     shift_type = frappe.db.get_value("Shift Type", single_in_record['shift'], "custom_shift_type")
-
+                    
+            
                     if shift_type == "Day":
                         # For "Day" shift, find corresponding OUT record on the same day
                         corresponding_out = next(
@@ -92,6 +94,7 @@ def mark_attendance(date=None, shift=None):
                         first_checkin_time = single_in_record['time']
                         results[emp_name].append({
                             'emp_name': emp_name,
+                            'emp_type': emp_type,
                             'date': date,
                             'shift': single_in_record['shift'],
                             'first_checkin': single_in_record['name'],
@@ -99,7 +102,7 @@ def mark_attendance(date=None, shift=None):
                             'first_checkin_time': first_checkin_time,
                             'last_checkout_time': last_checkout_time
                         })
-
+                        
                     elif shift_type == "Night":                        
                         last_checkout = next((record for record in out_records if record['shift'] == single_in_record['shift'] and record['time'] > single_in_record['time']), None)
                         
@@ -127,6 +130,7 @@ def mark_attendance(date=None, shift=None):
                         first_checkin_time = single_in_record['time']
                         results[emp_name].append({
                             'emp_name': emp_name,
+                            'emp_type': emp_type,
                             'date': date,
                             'shift': single_in_record['shift'],
                             'first_checkin': single_in_record['name'],
@@ -147,6 +151,7 @@ def mark_attendance(date=None, shift=None):
 
                         first_shift_in = in_records[0]
                         second_shift_in = in_records[1]
+                        
 
                         # Fetch shift types for the first and second shifts
                         first_shift_type = frappe.db.get_value("Shift Type", first_shift_in['shift'], "custom_shift_type")
@@ -154,6 +159,7 @@ def mark_attendance(date=None, shift=None):
 
                         # Logic 1: Check if both shifts are "Day"
                         if first_shift_type == "Day" and second_shift_type == "Day":
+                            
                             first_shift_out_time = None
                             second_shift_in_time = None
 
@@ -185,6 +191,7 @@ def mark_attendance(date=None, shift=None):
                                     # Append the record to the employee's list in the results dictionary
                                     results[emp_name].append({
                                         'emp_name': emp_name,
+                                        'emp_type': emp_type,
                                         'date': date,
                                         'shift': first_shift_in['shift'],
                                         'first_checkin': first_checkin,
@@ -199,23 +206,31 @@ def mark_attendance(date=None, shift=None):
                             second_shift_in_time = None
 
                             # For first shift, find the corresponding OUT time (next "OUT" after first "IN")
-                            first_shift_out = next((record for record in out_records if record['shift'] == first_shift_in['shift'] and record['time'] > first_shift_in['time']), None)
+                            first_shift_out = next(
+                                (record for record in out_records if record['shift'] == first_shift_in['shift'] and record['time'] > first_shift_in['time']),
+                                None
+                            )
                             if first_shift_out:
                                 first_shift_out_time = first_shift_out['time']
 
-                            # For second shift, find the corresponding IN time (next "IN" after first "OUT")
+                            # For second shift, use the IN time directly
                             second_shift_in_time = second_shift_in['time']
 
-                            # Check if the time difference between first shift OUT and second shift IN is less than 30 minutes
+                            # Check if time difference between OUT of first and IN of second shift is less than 30 minutes
                             if first_shift_out_time and second_shift_in_time:
                                 diff = time_diff(first_shift_out_time, second_shift_in_time)
 
                                 if diff < timedelta(minutes=30):
-                                    # Consider first shift IN time as first check-in and second shift OUT time as last checkout
+                                    # Consider first shift IN as first check-in
                                     first_checkin = first_shift_in['name']
-                                    last_checkout = next((record for record in out_records if record['shift'] == second_shift_in['shift'] and record['time'] > first_shift_out_time), None)
 
-                                    # If the second shift OUT is not found for the same date, check for the next day's OUT record
+                                    # Try to find the OUT record after second shift IN
+                                    last_checkout = next(
+                                        (record for record in out_records if record['shift'] == second_shift_in['shift'] and record['time'] > first_shift_out_time),
+                                        None
+                                    )
+
+                                    # If not found, check in the next day's OUT records
                                     if not last_checkout:
                                         next_day_date = tomorrow_date
                                         checkin_records_next_day = frappe.db.get_all(
@@ -231,17 +246,25 @@ def mark_attendance(date=None, shift=None):
                                         )
                                         last_checkout = checkin_records_next_day[0] if checkin_records_next_day else None
 
-                                    # Ensure last_checkout is the full record object and extract time from it
-                                    if last_checkout:
-                                        last_checkout_time = last_checkout.time if last_checkout else None
-                                    else:
-                                        last_checkout_time = None
+                                    # Fallback logic
+                                    if not last_checkout:
+                                        # If last_checkout not found, try using first_shift_out
+                                        if first_shift_out:
+                                            last_checkout = first_shift_out
+                                        else:
+                                            # If even first_shift_out not found, set last_checkout to None
+                                            last_checkout = None
+
+                                    # Extract time if available
+                                    last_checkout_time = last_checkout['time'] if last_checkout else None
+
 
                                     # Update the check-in and check-out times for the employee
                                     first_checkin_time = first_shift_in['time']
                                     # Append the record to the employee's list in the results dictionary
                                     results[emp_name].append({
                                         'emp_name': emp_name,
+                                        'emp_type': emp_type,
                                         'date': date,
                                         'shift': first_shift_in['shift'],
                                         'first_checkin': first_checkin,
@@ -254,6 +277,8 @@ def mark_attendance(date=None, shift=None):
     for emp_name, emp_results in results.items():
         for result in emp_results:
             # frappe.msgprint(f"Employee: {result['emp_name']}, Date: {result['date']}, Shift: {result['shift']}, First Check-in time: {result['first_checkin_time']}, Last Checkout time: {result['last_checkout_time']}, first_checkin {result['first_checkin']}, last_checkout {result['last_checkout']}")
+            
+            emp_type = result.get('emp_type')
             
             first_checkin = result.get('first_checkin')
             last_checkout = result.get('last_checkout')
@@ -426,14 +451,14 @@ def mark_attendance(date=None, shift=None):
                     early_exit_hours_final = f"{early_exit_hour:02d}.{early_exit_minute:02d}"
                     att_early_exit = 1
 
-            
+                
                 # Calculate threshold limit wise status
                 att_status = 'Present'
                 if float(total_work_hours) < half_day_hour:
                     att_status = 'Half Day'
                 if float(total_work_hours) < absent_hour:
                     att_status = 'Absent'
-
+                
                 # Check if attendance already exists
                 exists_atte = frappe.db.get_value('Attendance', {'employee': emp_name, 'attendance_date': date, 'docstatus': 1}, ['name'])
                 if exists_atte:
@@ -441,7 +466,9 @@ def mark_attendance(date=None, shift=None):
                     attendance_link = frappe.utils.get_link_to_form("Attendance", exists_atte)
                     existing_attendances.append(f'Employee {emp_name}-{emp_full_name} for Date {formatted_date}: {attendance_link} \n')
                 else:
+                    
                     attendance = frappe.new_doc("Attendance")
+                    attendance.flags.skip_custom_logic = True
                     attendance.employee = emp_name
                     attendance.attendance_date = date
                     attendance.shift = shift
@@ -451,7 +478,7 @@ def mark_attendance(date=None, shift=None):
                     attendance.custom_employee_checkout = last_checkout
                     attendance.custom_total_hours = final_total_hours
                     attendance.custom_work_hours = final_work_hours
-                    if emp.employment_type == "Worker":
+                    if emp_type == "Worker":
                         attendance.custom_overtime = applicable_OT
                         attendance.custom_remaining_overtime = remaining_OT
                     attendance.status = att_status
@@ -476,6 +503,7 @@ def mark_attendance(date=None, shift=None):
                     
                 else:
                     attendance = frappe.new_doc("Attendance")
+                    attendance.flags.skip_custom_logic = True
                     attendance.employee = emp_name
                     attendance.attendance_date = date
                     attendance.shift = shift
@@ -523,6 +551,3 @@ def schedule_mark_attendance(attendance_date=None):
     
     messages = mark_attendance(date=attendance_date)
     return messages
-
-        
-            

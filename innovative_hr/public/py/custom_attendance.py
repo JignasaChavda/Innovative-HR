@@ -27,7 +27,7 @@ def before_save(self, method=None):
 
     emp = self.employee
     date = self.attendance_date
-    holiday_list = frappe.db.set_value('Employee', emp, 'holiday_list')
+    holiday_list = frappe.db.get_value('Employee', emp, 'holiday_list')
     first_checkin_time = self.in_time
     first_in_time = get_time(first_checkin_time) if first_checkin_time else None
     
@@ -224,5 +224,3 @@ def before_save(self, method=None):
         self.early_exit = att_early_exit
         self.custom_remarks = att_remarks
     
-
-           

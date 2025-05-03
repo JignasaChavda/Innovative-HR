@@ -47,6 +47,9 @@ def is_in_time_within_shift(in_time, shift_actual_start, grace_after_shift_start
     return shift_actual_start <= in_time <= grace_after_shift_start
 
 def before_save(self, method=None):
+    if getattr(self.flags, "skip_custom_logic", False):
+        return  # Skip logic for auto attendance
+        
     date_time = get_datetime(self.time)
     self.custom_date = date_time.date()
     today_date = date_time.date()
@@ -156,7 +159,7 @@ def on_update(self, method=None):
         if (
             date_time.time().hour == last_log_time.time().hour and
             date_time.time().minute == last_log_time.time().minute and
-            date_time.time().second != last_log_time.time().second and
-            last_shift == current_shift
+            date_time.time().second != last_log_time.time().second
         ):
             frappe.delete_doc("Employee Checkin", self.name)
+
