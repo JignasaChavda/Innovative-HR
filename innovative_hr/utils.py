@@ -213,12 +213,14 @@ def mark_attendance(date=None, shift=None):
 
                         # Logic 1: Check if both shifts are "Day"
                         if first_shift_type == "Day" and second_shift_type == "Day":
-                            
                             first_shift_out_time = None
                             second_shift_in_time = None
 
                             # For first shift, find the corresponding OUT time (next "OUT" after first "IN")
-                            first_shift_out = next((record for record in out_records if record['shift'] == first_shift_in['shift'] and record['time'] > first_shift_in['time']), None)
+                            first_shift_out = next(
+                                (record for record in out_records if record['shift'] == first_shift_in['shift'] and record['time'] > first_shift_in['time']),
+                                None
+                            )
                             if first_shift_out:
                                 first_shift_out_time = first_shift_out['time']
 
@@ -230,29 +232,43 @@ def mark_attendance(date=None, shift=None):
                                 diff = time_diff(first_shift_out_time, second_shift_in_time)
 
                                 if diff < timedelta(minutes=30):
-                                    # Consider first shift IN time as first check-in and second shift OUT time as last checkout
+                                    # Consider first shift IN time as first check-in
                                     first_checkin = first_shift_in['name']
-                                    last_checkout = next((record for record in out_records if record['shift'] == second_shift_in['shift'] and record['time'] > first_shift_out_time), None)
-
-                                    # Ensure last_checkout is the full record object and extract time from it
-                                    if last_checkout:
-                                        last_checkout_time = last_checkout.time if last_checkout else None
-                                    else:
-                                        last_checkout_time = None
-
-                                    # Update the check-in and check-out times for the employee
                                     first_checkin_time = first_shift_in['time']
+
+                                    # Try to find the last checkout in the second shift OUT logs
+                                    last_checkout = next(
+                                        (record for record in out_records if record['shift'] == second_shift_in['shift'] and record['time'] > first_shift_out_time),
+                                        None
+                                    )
+
+                                    # If not found, fallback to first available OUT record after first shift out time
+                                    if not last_checkout:
+                                        last_checkout = next(
+                                            (record for record in out_records if record['time'] > first_shift_out_time),
+                                            None
+                                        )
+
+                                    # Final fallback: if still not found, use first shift OUT log
+                                    if not last_checkout and first_shift_out:
+                                        last_checkout = first_shift_out
+
+                                    last_checkout_time = last_checkout['time'] if last_checkout else None
+                                    last_checkout_name = last_checkout['name'] if last_checkout else None
+
                                     # Append the record to the employee's list in the results dictionary
                                     results[emp_name].append({
                                         'emp_name': emp_name,
                                         'emp_type': emp_type,
                                         'date': date,
+                                        'sdfsd': 'ssdfsdf',
                                         'shift': first_shift_in['shift'],
                                         'first_checkin': first_checkin,
-                                        'last_checkout': last_checkout.name if last_checkout else None,
+                                        'last_checkout': last_checkout_name,
                                         'first_checkin_time': first_checkin_time,
                                         'last_checkout_time': last_checkout_time
                                     })
+
                                     
                         # Logic 2: Check if first shift is "Day" and second shift is "Night"
                         elif first_shift_type == "Day" and second_shift_type == "Night":
@@ -277,6 +293,7 @@ def mark_attendance(date=None, shift=None):
                                 if diff < timedelta(minutes=30):
                                     # Consider first shift IN as first check-in
                                     first_checkin = first_shift_in['name']
+                                    first_checkin_time = first_shift_in['time']
 
                                     # Try to find the OUT record after second shift IN
                                     last_checkout = next(
@@ -300,21 +317,14 @@ def mark_attendance(date=None, shift=None):
                                         )
                                         last_checkout = checkin_records_next_day[0] if checkin_records_next_day else None
 
-                                    # Fallback logic
-                                    if not last_checkout:
-                                        # If last_checkout not found, try using first_shift_out
-                                        if first_shift_out:
-                                            last_checkout = first_shift_out
-                                        else:
-                                            # If even first_shift_out not found, set last_checkout to None
-                                            last_checkout = None
+                                    # Fallback: use first_shift_out as last checkout if no better option found
+                                    if not last_checkout and first_shift_out:
+                                        last_checkout = first_shift_out
 
-                                    # Extract time if available
+                                    # Extract name and time if available
+                                    last_checkout_name = last_checkout['name'] if last_checkout else None
                                     last_checkout_time = last_checkout['time'] if last_checkout else None
 
-
-                                    # Update the check-in and check-out times for the employee
-                                    first_checkin_time = first_shift_in['time']
                                     # Append the record to the employee's list in the results dictionary
                                     results[emp_name].append({
                                         'emp_name': emp_name,
@@ -322,10 +332,11 @@ def mark_attendance(date=None, shift=None):
                                         'date': date,
                                         'shift': first_shift_in['shift'],
                                         'first_checkin': first_checkin,
-                                        'last_checkout': last_checkout.name if last_checkout else None,
+                                        'last_checkout': last_checkout_name,
                                         'first_checkin_time': first_checkin_time,
                                         'last_checkout_time': last_checkout_time
                                     })
+
     # frappe.msgprint(str(results))                
    
     for emp_name, emp_results in results.items():

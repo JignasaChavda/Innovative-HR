@@ -140,7 +140,7 @@ override_doctype_class = {
 
 doc_events = {
     'Employee Checkin': {
-        "before_save": "innovative_hr.public.py.custom_employee_checkin.before_save",
+        "after_insert": "innovative_hr.public.py.custom_employee_checkin.before_save",
         "on_update": "innovative_hr.public.py.custom_employee_checkin.on_update"
     },
     # 'Attendance':{
