@@ -140,26 +140,4 @@ def before_save(self, method=None):
                     break
 
 
-def on_update(self, method=None):
-    date_time = get_datetime(self.time)
-
-    # Perform the deletion AFTER the current document has been saved
-    last_log = frappe.get_all("Employee Checkin", filters={
-        "employee": self.employee,
-        "name": ["!=", self.name]
-    }, fields=["name", "time", "shift"], order_by="time DESC", limit=1)
-
-    if last_log:
-        last_log_time = get_datetime(last_log[0]["time"])
-        last_shift = (last_log[0].get("shift") or "").strip()
-        current_shift = (self.shift or "").strip()
-        # frappe.msgprint(str(last_shift))
-        # frappe.msgprint(str(current_shift))
-
-        if (
-            date_time.time().hour == last_log_time.time().hour and
-            date_time.time().minute == last_log_time.time().minute and
-            date_time.time().second != last_log_time.time().second
-        ):
-            frappe.delete_doc("Employee Checkin", self.name)
 

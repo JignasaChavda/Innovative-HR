@@ -1,6 +1,5 @@
 [
  {
-  "_liked_by": "[\"Administrator\"]",
   "allow_guest": 0,
   "api_method": null,
   "cron_format": null,
@@ -20,7 +19,6 @@
   "script_type": "DocType Event"
  },
  {
-  "_liked_by": "[\"Administrator\"]",
   "allow_guest": 0,
   "api_method": null,
   "cron_format": null,
@@ -37,6 +35,25 @@
   "rate_limit_seconds": 86400,
   "reference_doctype": "Salary Slip",
   "script": "applicable_ot = doc.custom_applicable_overtime\nper_hour_wage = frappe.db.get_value('Employee', doc.employee, 'custom_per_hour_wages')\n\n\nif applicable_ot and per_hour_wage:\n    overtime_payment = round(applicable_ot * per_hour_wage)\n    component_found = False\n    esi_found = False\n    before_deduction = doc.total_deduction\n\n    for row in doc.deductions:\n        if row.salary_component == \"ESI\":\n            before_deduction = doc.total_deduction - row.amount\n            esi_found = True\n            break\n\n    for row in doc.earnings:\n        if row.salary_component == \"Overtime Payment\":\n            row.amount = overtime_payment\n            component_found = True\n            break\n\n    if not component_found:\n        doc.append(\"earnings\", {\n            \"salary_component\": \"Overtime Payment\",\n            \"amount\": overtime_payment\n        })\n\n    if overtime_payment:\n        new_gross = doc.gross_pay + overtime_payment\n        esi_amount = new_gross * 0.0075 if esi_found else 0\n\n        if esi_found:\n            for row in doc.deductions:\n                if row.salary_component == \"ESI\":\n                    row.amount = esi_amount\n                    break\n\n        new_deduction = before_deduction + esi_amount\n        new_net_pay = new_gross - new_deduction\n\n        doc.gross_pay = new_gross\n        doc.total_deduction = new_deduction\n        doc.net_pay = new_net_pay\n        doc.rounded_total = new_net_pay\n",
+  "script_type": "DocType Event"
+ },
+ {
+  "allow_guest": 0,
+  "api_method": null,
+  "cron_format": null,
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Server Script",
+  "doctype_event": "After Insert",
+  "enable_rate_limit": 0,
+  "event_frequency": "All",
+  "modified": "2025-05-06 12:43:53.896415",
+  "module": "Innovative HR",
+  "name": "Delete duplicate checkin",
+  "rate_limit_count": 5,
+  "rate_limit_seconds": 86400,
+  "reference_doctype": "Employee Checkin",
+  "script": "date_time = frappe.utils.get_datetime(doc.time)\n\n# Delete same timestamp log\nlast_log = frappe.get_all(\"Employee Checkin\", filters={\n    \"employee\": doc.employee,\n    \"name\": [\"!=\", doc.name],\n    \"time\": doc.time\n}, fields=[\"name\", \"time\", \"shift\"], order_by=\"time DESC\")\n\nif last_log:\n    frappe.delete_doc(\"Employee Checkin\", doc.name)\n    \n    \n# Delete log for second difference   \nexisting_logs = frappe.get_all(\"Employee Checkin\", filters={\n    \"employee\": doc.employee,\n    \"name\": [\"!=\", doc.name]\n}, fields=[\"name\", \"time\"], order_by=\"time DESC\")\n\nfor log in existing_logs:\n    log_time = frappe.utils.get_datetime(log[\"time\"])\n    \n    if (\n        date_time.date() == log_time.date() and\n        date_time.time().hour == log_time.time().hour and\n        date_time.time().minute == log_time.time().minute and\n        date_time.time().second != log_time.time().second\n    ):\n        frappe.delete_doc(\"Employee Checkin\", doc.name)\n\n",
   "script_type": "DocType Event"
  }
 ]
