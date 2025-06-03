@@ -55,5 +55,24 @@
   "reference_doctype": "Employee Checkin",
   "script": "date_time = frappe.utils.get_datetime(doc.time)\n\n# Delete same timestamp log\nlast_log = frappe.get_all(\"Employee Checkin\", filters={\n    \"employee\": doc.employee,\n    \"name\": [\"!=\", doc.name],\n    \"time\": doc.time\n}, fields=[\"name\", \"time\", \"shift\"], order_by=\"time DESC\")\n\nif last_log:\n    frappe.delete_doc(\"Employee Checkin\", doc.name)\n    \n    \n# Delete log for second difference   \nexisting_logs = frappe.get_all(\"Employee Checkin\", filters={\n    \"employee\": doc.employee,\n    \"name\": [\"!=\", doc.name]\n}, fields=[\"name\", \"time\"], order_by=\"time DESC\")\n\nfor log in existing_logs:\n    log_time = frappe.utils.get_datetime(log[\"time\"])\n    \n    if (\n        date_time.date() == log_time.date() and\n        date_time.time().hour == log_time.time().hour and\n        date_time.time().minute == log_time.time().minute and\n        date_time.time().second != log_time.time().second\n    ):\n        frappe.delete_doc(\"Employee Checkin\", doc.name)\n\n",
   "script_type": "DocType Event"
+ },
+ {
+  "allow_guest": 0,
+  "api_method": null,
+  "cron_format": null,
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Server Script",
+  "doctype_event": "After Save",
+  "enable_rate_limit": 0,
+  "event_frequency": "All",
+  "modified": "2025-06-03 12:20:44.030904",
+  "module": "Innovative HR",
+  "name": "Set creation date",
+  "rate_limit_count": 5,
+  "rate_limit_seconds": 86400,
+  "reference_doctype": "Employee",
+  "script": "creation = doc.creation\nif doc.custom_creation_date==None:\n    creation_date = creation.date()\n    doc.custom_creation_date = creation_date\n    doc.save()\n",
+  "script_type": "DocType Event"
  }
 ]
