@@ -11,7 +11,7 @@ def execute(filters=None):
     contractor = filters.get("contractor")
 
     columns = [
-        {"label": "Employee",            "fieldname": "employee",             "fieldtype": "Link",     "options": "Employee",           "width": 150},
+        {"label": "Employee",            "fieldname": "employee_code",        "fieldtype": "Data",                "width": 150},
         {"label": "Employee Name",       "fieldname": "employee_name",        "fieldtype": "Data",      "width": 300},
         {"label": "Department",          "fieldname": "department",           "fieldtype": "Link",     "options": "Department",         "width": 200},
         {"label": "Employment Type",     "fieldname": "custom_employment_type","fieldtype": "Link",    "options": "Employment Type",    "width": 200},
@@ -56,6 +56,7 @@ def execute(filters=None):
             row["attendance_date"] = row["attendance_date"].strftime("%d-%m-%Y")
 
         row["contractor"] = row.get("custom_contractor")
+        row["employee_code"] = row.get("employee")  # Set employee_code for display
 
         try:
             hours = float(row.get("custom_total_hours") or 0.0)
@@ -71,12 +72,11 @@ def execute(filters=None):
         row["daily_wage"] = daily_wage
         total_daily_wage += daily_wage
 
-        # Extract time part from datetime
         row["in_time"] = row["in_time"].strftime('%H:%M:%S') if row.get("in_time") else ""
         row["out_time"] = row["out_time"].strftime('%H:%M:%S') if row.get("out_time") else ""
 
     data.append({
-        "employee":              "",
+        "employee_code":          "",
         "employee_name":         "<b>Total</b>",
         "department":            "",
         "custom_employment_type":"",
