@@ -4,7 +4,7 @@ frappe.query_reports["Daily Attendance Summary"] = {
             "fieldname":"attendance_date",
             "label": __("Attendance Date"),
             "fieldtype": "Date",
-            "default": frappe.datetime.get_today(),
+            "default": frappe.datetime.add_days(frappe.datetime.get_today(), -1),
             "reqd": 1
         },
         {
@@ -18,12 +18,17 @@ frappe.query_reports["Daily Attendance Summary"] = {
             "label": __("Employment Type"),
             "fieldtype": "Link",
             "options": "Employment Type"
+        },
+        {
+            "fieldname": "contractor",
+            "label": __("Contractor"),
+            "fieldtype": "Link",
+            "options": "Contractor Company"  // Ensure "Contractor" is a Doctype
         }
     ],
     "formatter": function(value, row, column, data, default_formatter){
-        // Prevent total row summing date/time fields
         if(column.fieldname === "custom_total_hours" && data && data.total_row){
-            return `<b>${value}</b>`;  // Bold total row for hours
+            return `<b>${value}</b>`;
         }
         return default_formatter(value, row, column, data);
     }
