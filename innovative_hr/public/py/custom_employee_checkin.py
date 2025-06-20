@@ -60,7 +60,7 @@ def before_save(self, method=None):
         "employee": self.employee,
         "log_type": "IN",
         "custom_date": self.custom_date
-    }, order_by="time ASC", limit=1)
+    }, fields=["name", "shift", "custom_shift_type", "time"], order_by="time ASC", limit=1)
 
     if not first_log:
        
@@ -92,52 +92,57 @@ def before_save(self, method=None):
                     self.custom_shift_type = shift["shift_type"]
                     break
     else:
-       
+        frappe.msgprint(str(first_log[0]))
+        # # Auto-mark current record as OUT for the same shift
+        self.shift = first_log[0]["shift"]
+        self.custom_shift_type = first_log[0]["custom_shift_type"]
+        self.log_type = "OUT"
+ 
         
-        # Get all IN logs for the day
-        in_logs = frappe.get_all("Employee Checkin", filters={
-            "employee": self.employee,
-            "log_type": "IN",
-            "custom_date": self.custom_date
-        }, fields=["name", "shift", "custom_shift_type", "time"], order_by="time ASC")
+        # # Get all IN logs for the day
+        # in_logs = frappe.get_all("Employee Checkin", filters={
+        #     "employee": self.employee,
+        #     "log_type": "IN",
+        #     "custom_date": self.custom_date
+        # }, fields=["name", "shift", "custom_shift_type", "time"], order_by="time ASC")
         
-        # Get all OUT logs for the day
-        out_logs = frappe.get_all("Employee Checkin", filters={
-            "employee": self.employee,
-            "log_type": "OUT",
-            "custom_date": self.custom_date
-        }, fields=["name", "shift", "custom_shift_type", "time"], order_by="time ASC")
+        # # Get all OUT logs for the day
+        # out_logs = frappe.get_all("Employee Checkin", filters={
+        #     "employee": self.employee,
+        #     "log_type": "OUT",
+        #     "custom_date": self.custom_date
+        # }, fields=["name", "shift", "custom_shift_type", "time"], order_by="time ASC")
 
-        matched = False
+        # matched = False
         
-        if in_logs:
-            for in_log in in_logs:
-                # Find the first OUT log which is after this IN log and for same shift
-                corresponding_out = None
-                for out_log in out_logs:
-                    if out_log["shift"] == in_log["shift"] and out_log["time"] > in_log["time"]:
-                        corresponding_out = out_log
-                        break
+        # if in_logs:
+        #     for in_log in in_logs:
+        #         # Find the first OUT log which is after this IN log and for same shift
+        #         corresponding_out = None
+        #         for out_log in out_logs:
+        #             if out_log["shift"] == in_log["shift"] and out_log["time"] > in_log["time"]:
+        #                 corresponding_out = out_log
+        #                 break
 
-                if not corresponding_out:
-                    # No OUT found yet for this IN
-                    midnight_time = get_datetime(f"{self.custom_date} 23:59:59")
-                    if self.time <= midnight_time:
-                        self.shift = in_log["shift"]
-                        self.log_type = "OUT"
-                        self.custom_shift_type = in_log["custom_shift_type"]
-                        matched = True
-                        break
+        #         if not corresponding_out:
+        #             # No OUT found yet for this IN
+        #             midnight_time = get_datetime(f"{self.custom_date} 23:59:59")
+        #             if self.time <= midnight_time:
+        #                 self.shift = in_log["shift"]
+        #                 self.log_type = "OUT"
+        #                 self.custom_shift_type = in_log["custom_shift_type"]
+        #                 matched = True
+        #                 break
 
-        if not matched:
-            # No matching IN-OUT, so it must be a fresh IN entry
-            shift_data = get_shift_timings(today_date, yesterday_date)
-            for shift in shift_data:
-                if is_in_time_within_shift(date_time, shift["actual_start"], shift["grace_after_shift_start"]):
-                    self.shift = shift["shift_name"]
-                    self.log_type = 'IN'
-                    self.custom_shift_type = shift["shift_type"]
-                    break
+        # if not matched:
+        #     # No matching IN-OUT, so it must be a fresh IN entry
+        #     shift_data = get_shift_timings(today_date, yesterday_date)
+        #     for shift in shift_data:
+        #         if is_in_time_within_shift(date_time, shift["actual_start"], shift["grace_after_shift_start"]):
+        #             self.shift = shift["shift_name"]
+        #             self.log_type = 'IN'
+        #             self.custom_shift_type = shift["shift_type"]
+        #             break
 
 
 
