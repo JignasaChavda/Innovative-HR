@@ -1,6 +1,5 @@
 [
  {
-  "_liked_by": "[\"Administrator\"]",
   "docstatus": 0,
   "doctype": "Client Script",
   "dt": "Shift Type",
@@ -12,7 +11,6 @@
   "view": "Form"
  },
  {
-  "_liked_by": "[\"Administrator\"]",
   "docstatus": 0,
   "doctype": "Client Script",
   "dt": "Employee Incentive",
@@ -24,7 +22,6 @@
   "view": "Form"
  },
  {
-  "_liked_by": "[\"Administrator\"]",
   "docstatus": 0,
   "doctype": "Client Script",
   "dt": "Salary Structure",
@@ -36,7 +33,6 @@
   "view": "Form"
  },
  {
-  "_liked_by": "[\"Administrator\"]",
   "docstatus": 0,
   "doctype": "Client Script",
   "dt": "Salary Component",
@@ -48,7 +44,6 @@
   "view": "Form"
  },
  {
-  "_liked_by": "[\"Administrator\"]",
   "docstatus": 0,
   "doctype": "Client Script",
   "dt": "Attendance",
@@ -68,6 +63,17 @@
   "module": "Innovative HR",
   "name": "Update Attendance",
   "script": "frappe.ui.form.on('Attendance', {\n    after_save: function (frm) {\n        console.log('hello')\n        frappe.call({\n            method: 'innovative_hr.public.py.custom_attendance.update_attendance',\n            args: {\n                attendance_name: frm.doc.name\n            },\n            callback: function (r) {\n                if (r.message) {\n                    frappe.msgprint(r.message);\n                }\n            }\n        });\n    }\n});\n",
+  "view": "Form"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Client Script",
+  "dt": "Additional Salary",
+  "enabled": 1,
+  "modified": "2025-06-22 11:04:54.877141",
+  "module": "Innovative HR",
+  "name": "Fetch Penalty Amount based on Penalty Type",
+  "script": "frappe.ui.form.on('Additional Salary', {\n    refresh:function(frm){\n        frm.set_value('salary_component', 'Penalty');\n        frm.refresh_field('salary_component');\n\n    },\n\tcustom_penalty_type: function(frm) {\n\t\tpenalty_type = frm.doc.custom_penalty_type;\n\t\tper_day_rate = frm.doc.custom_per_day_wages;\n\t\t\n\t\t\n\t\tif(penalty_type=='Sleeping during Working hours'){\n\t\t    frm.set_value('amount', per_day_rate);\n\t\t    frm.refresh_field('amount');\n\t\t}\n\t\t\n\t\tif(penalty_type=='Alcohol Consume'){\n\t\t    \n\t\t    frappe.db.get_value('Penalty Type', 'Alcohol Consume', 'penalty_amount')\n            .then(r => {\n                let penalty_amount = r.message.penalty_amount;\n                frm.set_value('amount', penalty_amount);\n                frm.refresh_field('amount');\n            });\n\t\t}\n\t\t\n\t\tif(penalty_type=='Maava Usage'){\n\t\t    frappe.db.get_value('Penalty Type', 'Maava Usage', 'penalty_amount')\n            .then(r => {\n                let penalty_amount = r.message.penalty_amount;\n                frm.set_value('amount', penalty_amount);\n                frm.refresh_field('amount');\n            });\n\t\t}\n\t\t\n\t\tif(penalty_type=='Mobile Usage'){\n\t\t    frappe.db.get_value('Penalty Type', 'Mobile Usage', 'penalty_amount')\n            .then(r => {\n                let penalty_amount = r.message.penalty_amount;\n                frm.set_value('amount', penalty_amount);\n                frm.refresh_field('amount');\n            });\n\t\t}\n\t\t    \n\t} \n})\n\n\n",
   "view": "Form"
  }
 ]
