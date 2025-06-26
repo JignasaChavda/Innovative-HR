@@ -77,12 +77,14 @@ def mark_attendance(date=None, shift=None):
         shift = first_in['shift']
         shift_type = first_in.get('custom_shift_type')
 
-        # Step 3: Determine which date to search OUT records from
+        last_in = in_records[-1]
+        shift_type = last_in.get('custom_shift_type')
+ 
         if shift_type == "Night":
-            out_log_date = add_days(date, 1)
+            out_log_date = tomorrow_date
         else:
             out_log_date = date
-
+        
         # Step 4: Fetch OUT records from the decided date
         out_records = frappe.db.get_all(
             "Employee Checkin",
@@ -132,6 +134,11 @@ def mark_attendance(date=None, shift=None):
             
             first_checkin = result.get('first_checkin')
             last_checkout = result.get('last_checkout')
+
+            # frappe.msgprint(str(emp_name))
+            # frappe.msgprint(str(first_checkin))
+            # frappe.msgprint(str(last_checkout))
+
             first_checkin_time = result.get('first_checkin_time')
             last_checkout_time = result.get('last_checkout_time')
             shift = result.get('shift')

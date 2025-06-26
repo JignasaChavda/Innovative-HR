@@ -71,6 +71,7 @@ def before_save(self, method=None):
             "log_type": "IN"
         }, fields=["name", "shift", "custom_shift_type", "time"], limit=1)
 
+        # frappe.msgprint(str(yesterday_date))
         night_out_today = frappe.get_all("Employee Checkin", filters={
             "employee": self.employee,
             "custom_date": today_date,
@@ -92,12 +93,45 @@ def before_save(self, method=None):
                     self.custom_shift_type = shift["shift_type"]
                     break
     else:
-        frappe.msgprint(str(first_log[0]))
-        # # Auto-mark current record as OUT for the same shift
-        self.shift = first_log[0]["shift"]
-        self.custom_shift_type = first_log[0]["custom_shift_type"]
-        self.log_type = "OUT"
- 
+        
+
+        out_logs = frappe.get_all("Employee Checkin", filters={
+            "employee": self.employee,
+            "log_type": "OUT",
+            "custom_date": self.custom_date
+        }, fields=["name", "shift", "custom_shift_type", "time"], order_by="time ASC")
+        # frappe.msgprint(str(out_logs))
+        
+
+        log_marked = False
+        for log in out_logs:
+            time_diff = abs((log["time"] - self.time).total_seconds()) / 60  # convert to minutes
+
+            if time_diff >= 3 and time_diff <= 18:
+                # If an OUT log exists within 10 minutes, mark as IN
+
+                shift_data = get_shift_timings(today_date, yesterday_date)
+                for shift in shift_data:
+                    if is_in_time_within_shift(date_time, shift["actual_start"], shift["grace_after_shift_start"]):
+                        self.shift = shift["shift_name"]
+                        self.log_type = 'IN'
+                        self.custom_shift_type = shift["shift_type"]
+                        log_marked = True
+                        break
+
+
+
+                # self.log_type = "IN"
+                # self.shift = log["shift"]
+                # self.custom_shift_type = log["custom_shift_type"]
+                
+                # break  # stop after finding the first match within 10 minutes
+
+        if not log_marked:
+            self.shift = first_log[0]["shift"]
+            self.custom_shift_type = first_log[0]["custom_shift_type"]
+            self.log_type = "OUT"
+    
         
         # # Get all IN logs for the day
         # in_logs = frappe.get_all("Employee Checkin", filters={
@@ -107,11 +141,7 @@ def before_save(self, method=None):
         # }, fields=["name", "shift", "custom_shift_type", "time"], order_by="time ASC")
         
         # # Get all OUT logs for the day
-        # out_logs = frappe.get_all("Employee Checkin", filters={
-        #     "employee": self.employee,
-        #     "log_type": "OUT",
-        #     "custom_date": self.custom_date
-        # }, fields=["name", "shift", "custom_shift_type", "time"], order_by="time ASC")
+        
 
         # matched = False
         
