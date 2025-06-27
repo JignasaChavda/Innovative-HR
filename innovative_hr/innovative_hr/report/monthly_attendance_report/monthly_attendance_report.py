@@ -68,7 +68,10 @@ def execute(filters: Filters | None = None) -> tuple:
         {"label": _(label), "fieldname": field, "fieldtype": field_type, "width": width}
         for label, field, field_type, width in [
             ("Total Weekoffs", "total_weekoff", "Int", 120),
+            ("Worked Weekoffs", "worked_week_offs", "float", 120),
             ("Total Holidays", "total_holiday", "Int", 120),
+            ("Worked Holidays", "worked_holidays", "float", 120),
+            ("Total Leaves", "total_leaves","float", 120),
             ("Total Work Hours", "total_work_hours", "Data", 200),
             ("Total Applicable Overtime", "total_applicable_overtime", "Data", 200),
             ("Total Remaining Overtime", "total_remaining_overtime", "Data", 200)
@@ -136,6 +139,13 @@ def get_rows(employee_details: dict, filters: Filters, holiday_map: dict, attend
     for employee, details in employee_details.items():
         emp_holiday_list = details.holiday_list or default_holiday_list
         holidays = holiday_map.get(emp_holiday_list)
+        total_weekoffs = 0
+        total_holidays = 0
+        for holiday in holidays:
+            if holiday.get("weekly_off"):
+                total_weekoffs += 1
+            else:
+                total_holidays += 1
 
         if filters.summarized_view:
             # * Summarized view: Combine attendance, leave & entry/exit summary
@@ -157,7 +167,7 @@ def get_rows(employee_details: dict, filters: Filters, holiday_map: dict, attend
                 continue
 
             attendance_for_employee = custom_get_attendance_status_for_detailed_view(
-                employee, filters, employee_attendance, holidays
+                employee, filters, employee_attendance,holidays, total_weekoffs, total_holidays
             )
 
             attendance_for_employee[0].update({
@@ -183,12 +193,13 @@ def get_rows(employee_details: dict, filters: Filters, holiday_map: dict, attend
 
 # * ----------- Format Attendance Row (Detailed) -------------
 def custom_get_attendance_status_for_detailed_view(
-    employee: str, filters: Filters, employee_attendance: dict, holidays: list
+    employee: str, filters: Filters, employee_attendance: dict, holidays: list, total_weekoffs, total_holidays
 ) -> list[dict]:
     total_days = get_total_days_in_month(filters)
     row = {}
-    total_week_off = 0
-    total_holiday = 0
+    worked_week_offs = 0
+    worked_holidays = 0
+    total_leaves = 0
 
     for day in range(1, total_days + 1):
         status = employee_attendance.get(day)
@@ -199,14 +210,33 @@ def custom_get_attendance_status_for_detailed_view(
         row[cstr(day)] = abbr
 
         # ! Track totals for weekoffs and holidays
-        if abbr == "WO":
-            total_week_off += 1
-        elif abbr == "H":
-            total_holiday += 1
+        if abbr == "P" or abbr=="WFH":
+            new_status = get_holiday_status(day, holidays)
+            if new_status == "Weekly Off":
+                worked_week_offs += 1
+            elif new_status == "Holiday":
+                worked_holidays += 1
+        
+        elif abbr == "HD":
+            new_status = get_holiday_status(day, holidays)
+            if new_status == "Weekly Off":
+                worked_week_offs += 0.5
+            elif new_status == "Holiday":
+                worked_holidays += 0.5
+            else:
+                attendance  = frappe.get_all("Attendance", filters={"employee": employee, "attendance_date": f"{filters.year}-{filters.month}-{day}"}, fields=["leave_type"])
+                if attendance[0].leave_type:
+                    total_leaves += 0.5
+
+        elif abbr == "L":
+            total_leaves += 1
 
     row.update({
-        "total_weekoff": total_week_off,
-        "total_holiday": total_holiday
+        "total_weekoff": total_weekoffs,
+        "total_holiday": total_holidays,
+        "worked_week_offs":worked_week_offs,
+        "worked_holidays":worked_holidays,
+        "total_leaves": total_leaves
     })
 
     return [row]
