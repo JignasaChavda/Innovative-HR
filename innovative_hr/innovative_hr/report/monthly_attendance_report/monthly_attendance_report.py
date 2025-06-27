@@ -209,7 +209,7 @@ def custom_get_attendance_status_for_detailed_view(
         abbr = status_map.get(status, "")
         row[cstr(day)] = abbr
 
-        # ! Track totals for weekoffs and holidays
+        # ! Track totals for worked weekoffs and holidays
         if abbr == "P" or abbr=="WFH":
             new_status = get_holiday_status(day, holidays)
             if new_status == "Weekly Off":
