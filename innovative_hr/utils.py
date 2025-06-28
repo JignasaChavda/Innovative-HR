@@ -3,6 +3,12 @@ from datetime import datetime, timedelta
 from frappe.utils import add_days, today, time_diff
 
 @frappe.whitelist(allow_guest=True)
+def is_holiday(date, holiday_list):
+    return frappe.db.get_value("Holiday", {
+        "holiday_date": date,
+        "parent": holiday_list
+    }, ["weekly_off", "name"], as_dict=True)
+
 def mark_attendance(date=None, shift=None):
     if date:
         # If date is provided, parse it
@@ -44,6 +50,7 @@ def mark_attendance(date=None, shift=None):
     late_entry_hours_final = '0'
     early_exit_hours_final = '0'
     att_remarks = ''
+    holiday_list = ''
 
     for emp in active_employees:
         emp_name = emp["name"]
@@ -51,6 +58,7 @@ def mark_attendance(date=None, shift=None):
         emp_full_name = emp["employee_name"]
         emp_joining_date = emp.get("date_of_joining")
         holiday_list = emp.get("holiday_list")
+        
 
         if emp_joining_date and emp_joining_date > date:
             continue
@@ -118,7 +126,8 @@ def mark_attendance(date=None, shift=None):
             'first_checkin': first_checkin,
             'last_checkout': last_checkout,
             'first_checkin_time': first_checkin_time,
-            'last_checkout_time': last_checkout_time
+            'last_checkout_time': last_checkout_time,
+            'holiday_list': holiday_list
         })
 
                
@@ -131,6 +140,7 @@ def mark_attendance(date=None, shift=None):
             # frappe.msgprint(f"Employee: {result['emp_name']}, Date: {result['date']}, Shift: {result['shift']}, First Check-in time: {result['first_checkin_time']}, Last Checkout time: {result['last_checkout_time']}, first_checkin {result['first_checkin']}, last_checkout {result['last_checkout']}")
             
             emp_type = result.get('emp_type')
+            holiday_list = result.get('holiday_list')
             
             first_checkin = result.get('first_checkin')
             last_checkout = result.get('last_checkout')
@@ -246,13 +256,13 @@ def mark_attendance(date=None, shift=None):
                 # Assuming 'date' is the date being processed (datetime.date object)
                 # Assuming 'holiday_list' is the name of the Holiday List assigned to the employee
                 # Assuming 'remaining_OT' is already initialized or tracked elsewhere
-
+                
                 holiday = frappe.db.exists('Holiday', {
                     'holiday_date': date,
                     'parent': holiday_list,
                     'weekly_off': 0  # General holiday only
                 })
-
+                
                 if holiday:
                     # Add total work hours as OT (on general holiday)
                     remaining_OT_hours = float(final_total_hours)
@@ -319,76 +329,86 @@ def mark_attendance(date=None, shift=None):
                     att_status = 'Absent'
                 
                 # Check if attendance already exists
-                exists_atte = frappe.db.get_value('Attendance', {'employee': emp_name, 'attendance_date': date, 'docstatus': 1}, ['name'])
+                exists_atte = frappe.db.get_value('Attendance', {
+                    'employee': emp_name,
+                    'attendance_date': date,
+                    'docstatus': 1
+                }, ['name'])
+
                 if exists_atte:
                     formatted_date = date.strftime("%d-%m-%Y")
                     attendance_link = frappe.utils.get_link_to_form("Attendance", exists_atte)
-                    existing_attendances.append(f'Employee {emp_name}-{emp_full_name} for Date {formatted_date}: {attendance_link} \n')
+                    existing_attendances.append(
+                        f'Employee {emp_name}-{emp_full_name} for Date {formatted_date}: {attendance_link} \n'
+                    )
+
                 else:
-                    
-                    
-                    attendance = frappe.new_doc("Attendance")
-                    attendance.employee = emp_name
-                    attendance.attendance_date = date
-                    attendance.shift = shift
-                    attendance.in_time = first_checkin_time
-                    attendance.out_time = last_checkout_time
-                    attendance.custom_employee_checkin = first_checkin
-                    attendance.custom_employee_checkout = last_checkout
-                    attendance.custom_total_hours = final_total_hours
-                    attendance.custom_work_hours = final_work_hours
-                    if emp_type == "Worker":
-                        attendance.custom_overtime = applicable_OT
-                        attendance.custom_remaining_overtime = remaining_OT
-                    attendance.status = att_status
-                    # attendance.custom_late_entry_hours = late_entry_hours_final
-                    # attendance.custom_early_exit_hours = early_exit_hours_final
-                    # attendance.late_entry = att_late_entry
-                    # attendance.early_exit = att_early_exit
-                    attendance.custom_remarks = att_remarks
+                    holiday_info = is_holiday(date, holiday_list)
 
-                    attendance.insert(ignore_permissions=True)
-                    attendance.submit()
-                    frappe.db.commit()
-
-                   
-            
-            elif first_checkin or last_checkout:
-                exists_atte = frappe.db.get_value('Attendance', {'employee': emp_name, 'attendance_date': date, 'docstatus': 1}, ['name'])
-                if exists_atte:
-                    formatted_date = date.strftime("%d-%m-%Y")
-                    attendance_link = frappe.utils.get_link_to_form("Attendance", exists_atte)
-                    existing_attendances.append(f'Employee {emp_name}-{emp_full_name} for Date {formatted_date}: {attendance_link} \n')
+                    custom_weekoff_status = ""
+                    if holiday_info:
+                        if holiday_info.weekly_off and (first_checkin or last_checkout):
+                            custom_weekoff_status = "WeekOff"
+                        elif not holiday_info.weekly_off:
+                            custom_weekoff_status = "Holiday"
                     
-                else:
-                    
-                    attendance = frappe.new_doc("Attendance")
-                    attendance.employee = emp_name
-                    attendance.attendance_date = date
-                    attendance.shift = shift
-
-                    if first_checkin_time:
+                    # Determine if it's a Mispunch or Regular attendance
+                    if first_checkin and last_checkout:
+                        # Regular attendance
+                        attendance = frappe.new_doc("Attendance")
+                        attendance.employee = emp_name
+                        attendance.attendance_date = date
+                        attendance.shift = shift
                         attendance.in_time = first_checkin_time
+                        attendance.out_time = last_checkout_time
                         attendance.custom_employee_checkin = first_checkin
-                        attendance.custom_remarks = 'No Checkout record found'
-                    if last_checkout_time:
-                        attendance.out_time = first_checkin_time
                         attendance.custom_employee_checkout = last_checkout
-                        attendance.custom_remarks = 'No Checkin record found'
-                    attendance.custom_total_hours = 0
-                    attendance.custom_work_hours = 0
-                    attendance.custom_overtime = 0
-                    attendance.custom_remaining_overtime = 0
-                    attendance.status = 'Mispunch'
-                    # attendance.custom_late_entry_hours = 0
-                    # attendance.custom_early_exit_hours = 0
-                    # attendance.late_entry = 0
-                    # attendance.early_exit = 0
-                    
+                        attendance.custom_total_hours = final_total_hours
+                        attendance.custom_work_hours = final_work_hours
+                        attendance.custom_weekoff_status = custom_weekoff_status
 
-                    attendance.insert(ignore_permissions=True)
-                    attendance.submit()
-                    frappe.db.commit()
+                        if emp_type == "Worker":
+                            attendance.custom_overtime = applicable_OT
+                            attendance.custom_remaining_overtime = remaining_OT
+
+                        attendance.status = att_status
+                        attendance.custom_remarks = att_remarks
+
+                        attendance.insert(ignore_permissions=True)
+                        attendance.submit()
+                        frappe.db.commit()
+
+                    elif first_checkin or last_checkout:
+                        # Mispunch record
+                        attendance = frappe.new_doc("Attendance")
+                        attendance.employee = emp_name
+                        attendance.attendance_date = date
+                        attendance.shift = shift
+                        attendance.custom_weekoff_status = custom_weekoff_status
+
+                        if first_checkin_time:
+                            attendance.in_time = first_checkin_time
+                            attendance.custom_employee_checkin = first_checkin
+                            attendance.custom_remarks = 'No Checkout record found'
+
+                        if last_checkout_time:
+                            attendance.out_time = last_checkout_time
+                            attendance.custom_employee_checkout = last_checkout
+                            if not first_checkin_time:
+                                attendance.custom_remarks = 'No Checkin record found'
+
+                        attendance.custom_total_hours = 0
+                        attendance.custom_work_hours = 0
+                        attendance.custom_overtime = 0
+                        attendance.custom_remaining_overtime = 0
+                        attendance.status = 'Mispunch'
+
+                        attendance.insert(ignore_permissions=True)
+                        attendance.submit()
+                        frappe.db.commit()
+
+
+
 
                     
     if existing_attendances:
