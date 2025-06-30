@@ -19,7 +19,6 @@ from hrms.hr.report.monthly_attendance_sheet.monthly_attendance_sheet import (
     get_leave_summary,
     get_holiday_status,
     get_total_days_in_month,
-    get_employee_related_details,
     get_holiday_map,
 )
 
@@ -64,6 +63,13 @@ def execute(filters: Filters | None = None) -> tuple:
 
     # * Build columns for report
     columns = [col for col in get_columns(filters) if col.get("fieldname") != "shift"]
+    columns.insert(2, {
+    "label": _("Employment Type"),
+    "fieldname": "employment_type",
+    "fieldtype": "Link",
+    "options": "Employment Type",
+    "width": 150
+    })
     columns += [
         {"label": _(label), "fieldname": field, "fieldtype": field_type, "width": width}
         for label, field, field_type, width in [
@@ -172,7 +178,8 @@ def get_rows(employee_details: dict, filters: Filters, holiday_map: dict, attend
 
             attendance_for_employee[0].update({
                 "employee": employee,
-                "employee_name": details.employee_name
+                "employee_name": details.employee_name,
+                "employment_type": details.employment_type
             })
 
             # * Add Overtime and Work Hour Summaries
@@ -263,3 +270,52 @@ def get_employee_attendance_records(employee, filters):
         fields=["custom_total_hours", "custom_overtime", "custom_remaining_overtime"],
         order_by="attendance_date asc"
     )
+
+def get_employee_related_details(filters: Filters) -> tuple[dict, list]:
+    """Returns
+    1. nested dict for employee details
+    2. list of values for the group by filter
+    """
+    Employee = frappe.qb.DocType("Employee")
+    query = (
+        frappe.qb.from_(Employee)
+        .select(
+            Employee.name,
+            Employee.employee_name,
+            Employee.employment_type,
+            Employee.designation,
+            Employee.grade,
+            Employee.department,
+            Employee.branch,
+            Employee.company,
+            Employee.holiday_list,
+        )
+        .where(Employee.company.isin(filters.companies))
+    )
+
+    if filters.employee:
+        query = query.where(Employee.name == filters.employee)
+
+    group_by = filters.group_by
+    if group_by:
+        group_by = group_by.lower()
+        query = query.orderby(group_by)
+
+    employee_details = query.run(as_dict=True)
+
+    group_by_param_values = []
+    emp_map = {}
+
+    if group_by:
+        group_key = lambda d: "" if d[group_by] is None else d[group_by]  # noqa
+        for parameter, employees in groupby(sorted(employee_details, key=group_key), key=group_key):
+            group_by_param_values.append(parameter)
+            emp_map.setdefault(parameter, frappe._dict())
+
+            for emp in employees:
+                emp_map[parameter][emp.name] = emp
+    else:
+        for emp in employee_details:
+            emp_map[emp.name] = emp
+
+    return emp_map, group_by_param_values
