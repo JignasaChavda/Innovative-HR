@@ -67,6 +67,7 @@ def execute(filters: Filters | None = None) -> tuple:
     columns += [
         {"label": _(label), "fieldname": field, "fieldtype": field_type, "width": width}
         for label, field, field_type, width in [
+            ("Total Present Days", "total_present", "float", 200),
             ("Total Weekoffs", "total_weekoff", "Int", 120),
             ("Worked Weekoffs", "worked_week_offs", "float", 120),
             ("Total Holidays", "total_holiday", "Int", 120),
@@ -199,6 +200,7 @@ def custom_get_attendance_status_for_detailed_view(
     worked_week_offs = 0
     worked_holidays = 0
     total_leaves = 0
+    total_presents = 0
 
     for day in range(1, total_days + 1):
         status = employee_attendance.get(day)
@@ -215,8 +217,11 @@ def custom_get_attendance_status_for_detailed_view(
                 worked_week_offs += 1
             elif new_status == "Holiday":
                 worked_holidays += 1
-        
+            if abbr == "P":
+                total_presents += 1
+
         elif abbr == "HD":
+            total_presents += 0.5
             new_status = get_holiday_status(day, holidays)
             if new_status == "Weekly Off":
                 worked_week_offs += 0.5
@@ -231,6 +236,7 @@ def custom_get_attendance_status_for_detailed_view(
             total_leaves += 1
 
     row.update({
+        "total_present": total_presents,
         "total_weekoff": total_weekoffs,
         "total_holiday": total_holidays,
         "worked_week_offs":worked_week_offs,
