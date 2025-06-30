@@ -125,9 +125,8 @@ def get_attendance_map_without_shift(filters: Filters) -> dict:
     # ^ Fill leave records even when no shift present
     for employee, leave_days in leave_map.items():
         attendance_map.setdefault(employee, {})
-        for day_list in leave_days:
-            for day in day_list:
-                attendance_map[employee][day] = "On Leave"
+        for day in leave_days:
+            attendance_map[employee][day] = "On Leave"
 
     return attendance_map
 
