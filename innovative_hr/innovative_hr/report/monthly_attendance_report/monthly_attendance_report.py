@@ -7,6 +7,8 @@ import frappe
 from frappe import _
 from frappe.utils import cstr
 from frappe.utils.nestedset import get_descendants_of
+from innovative_hr.override.salary_slip_override import SalarySlip
+from itertools import groupby
 from hrms.hr.report.monthly_attendance_sheet.monthly_attendance_sheet import (
     get_attendance_map,
     get_chart_data,
@@ -73,12 +75,15 @@ def execute(filters: Filters | None = None) -> tuple:
     columns += [
         {"label": _(label), "fieldname": field, "fieldtype": field_type, "width": width}
         for label, field, field_type, width in [
+            ("Total Working Days", "total_working_days", "float", 200),
             ("Total Present Days", "total_present", "float", 200),
             ("Total Weekoffs", "total_weekoff", "Int", 120),
             ("Worked Weekoffs", "worked_week_offs", "float", 120),
             ("Total Holidays", "total_holiday", "Int", 120),
             ("Worked Holidays", "worked_holidays", "float", 120),
             ("Total Leaves", "total_leaves","float", 120),
+            ("Total LOP", "total_lop", "float", 200),
+            ("Total Payment Days", "total_payment_day", "float", 200),
             ("Total Work Hours", "total_work_hours", "Data", 200),
             ("Total Applicable Overtime", "total_applicable_overtime", "Data", 200),
             ("Total Remaining Overtime", "total_remaining_overtime", "Data", 200)
@@ -208,6 +213,7 @@ def custom_get_attendance_status_for_detailed_view(
     worked_holidays = 0
     total_leaves = 0
     total_presents = 0
+    lop_days = 0
 
     for day in range(1, total_days + 1):
         status = employee_attendance.get(day)
@@ -237,10 +243,35 @@ def custom_get_attendance_status_for_detailed_view(
             else:
                 attendance  = frappe.get_all("Attendance", filters={"employee": employee, "attendance_date": f"{filters.year}-{filters.month}-{day}"}, fields=["leave_type"])
                 if attendance[0].leave_type:
+                    leave_type = frappe.get_doc("Leave Type", attendance[0].leave_type)
+                    if leave_type.is_lwp:
+                        lop_days += 0.5
                     total_leaves += 0.5
 
         elif abbr == "L":
+            attendance  = frappe.get_all("Attendance", filters={"employee": employee, "attendance_date": f"{filters.year}-{filters.month}-{day}"}, fields=["leave_type"])
+            if attendance[0].leave_type:
+                leave_type = frappe.get_doc("Leave Type", attendance[0].leave_type)
+                if leave_type.is_lwp:
+                    lop_days += 1
             total_leaves += 1
+
+    # * Create Parameters To Pass in set_new_working_days Method
+    working_days_obj = frappe._dict({
+        "employee": employee,
+        "start_date": f"{filters.year}-{filters.month}-01",
+        "end_date": f"{filters.year}-{filters.month}-{get_total_days_in_month(filters)}",
+        "leave_without_pay": lop_days,
+        "absent_days": 0,
+        "total_working_days": 0,
+        "payment_days": 0,
+    })
+
+    # * Call method
+    SalarySlip.set_new_working_days(working_days_obj)
+    # * Set Total Working and Payment Days
+    total_working_days = working_days_obj.total_working_days
+    payment_days = total_working_days - lop_days
 
     row.update({
         "total_present": total_presents,
@@ -248,7 +279,10 @@ def custom_get_attendance_status_for_detailed_view(
         "total_holiday": total_holidays,
         "worked_week_offs":worked_week_offs,
         "worked_holidays":worked_holidays,
-        "total_leaves": total_leaves
+        "total_leaves": total_leaves,
+        "total_lop": lop_days,
+        "total_payment_day": payment_days,
+        "total_working_days": total_working_days
     })
 
     return [row]
