@@ -65,11 +65,20 @@ def execute(filters: Filters | None = None) -> tuple:
 
     # * Build columns for report
     columns = [col for col in get_columns(filters) if col.get("fieldname") != "shift"]
+    # * Add Employment Type column at 2nd index in the report columns
     columns.insert(2, {
     "label": _("Employment Type"),
     "fieldname": "employment_type",
     "fieldtype": "Link",
     "options": "Employment Type",
+    "width": 150
+    })
+    # * Add Contractor column at 3rd index in the report columns
+    columns.insert(3, {
+    "label": _("Contractor"),
+    "fieldname": "contractor",
+    "fieldtype": "Link",
+    "options": "Contractor Company",
     "width": 150
     })
     columns += [
@@ -184,7 +193,8 @@ def get_rows(employee_details: dict, filters: Filters, holiday_map: dict, attend
             attendance_for_employee[0].update({
                 "employee": employee,
                 "employee_name": details.employee_name,
-                "employment_type": details.employment_type
+                "employment_type": details.employment_type,
+                "contractor": details.custom_contractor
             })
 
             # * Add Overtime and Work Hour Summaries
@@ -323,6 +333,7 @@ def get_employee_related_details(filters: Filters) -> tuple[dict, list]:
             Employee.branch,
             Employee.company,
             Employee.holiday_list,
+            Employee.custom_contractor
         )
         .where(Employee.company.isin(filters.companies))
     )
