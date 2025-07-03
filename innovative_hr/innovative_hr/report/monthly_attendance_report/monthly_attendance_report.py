@@ -224,7 +224,7 @@ def custom_get_attendance_status_for_detailed_view(
     total_leaves = 0
     total_presents = 0
     lop_days = 0
-
+    employment_type = frappe.db.get_value("Employee", employee, "employment_type")
     for day in range(1, total_days + 1):
         status = employee_attendance.get(day)
         if status is None and holidays:
@@ -237,8 +237,13 @@ def custom_get_attendance_status_for_detailed_view(
         if abbr == "P" or abbr=="WFH":
             new_status = get_holiday_status(day, holidays)
             if new_status == "Weekly Off":
+                # ? NOT COUNT WORKED WEEKOFF AND HOLIDAY FOR STAFF AND STAFF TRAINEE
+                if employment_type in ["Staff", "Staff Trainee"]:
+                    total_presents -= 1
                 worked_week_offs += 1
             elif new_status == "Holiday":
+                if employment_type in ["Staff", "Staff Trainee"]:
+                    total_presents -= 1
                 worked_holidays += 1
             if abbr == "P":
                 total_presents += 1
@@ -248,7 +253,12 @@ def custom_get_attendance_status_for_detailed_view(
             new_status = get_holiday_status(day, holidays)
             if new_status == "Weekly Off":
                 worked_week_offs += 0.5
+                # ? NOT COUNT WORKED WEEKOFF AND HOLIDAY FOR STAFF AND STAFF TRAINEE
+                if employment_type in ["Staff", "Staff Trainee"]:
+                    total_presents -= 0.5
             elif new_status == "Holiday":
+                if employment_type in ["Staff", "Staff Trainee"]:
+                    total_presents -= 0.5
                 worked_holidays += 0.5
             else:
                 attendance  = frappe.get_all("Attendance", filters={"employee": employee, "attendance_date": f"{filters.year}-{filters.month}-{day}"}, fields=["leave_type"])
