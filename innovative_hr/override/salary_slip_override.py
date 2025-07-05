@@ -64,13 +64,19 @@ class SalarySlip(TransactionBase):
         relieving_date = frappe.db.get_value('Employee', self.employee, 'relieving_date')
         currency = frappe.db.get_value('Employee', self.employee, 'salary_currency')
         duration_in_days = (end_date - start_date).days + 1
-        if joining_date:
-            joining_duration_days = (joining_date - start_date).days
-        if relieving_date:
-            relieving_duration_days = (end_date - relieving_date).days 
-        
+
         
 
+        if joining_date:       
+            joining_duration_days = (joining_date - start_date).days
+
+            
+        if relieving_date:
+            relieving_duration_days = (end_date - relieving_date).days 
+
+        
+        
+        
         # Calculate working days based on the employement type
         if emp_type in ["Worker"] and holiday_list:
             holidays = frappe.get_all(
@@ -83,6 +89,7 @@ class SalarySlip(TransactionBase):
                     pluck="holiday_date"
                 )
             
+            
             weekoffplusholidays = frappe.get_all(
                     "Holiday",
                     filters={
@@ -93,7 +100,10 @@ class SalarySlip(TransactionBase):
                     },
                     pluck="holiday_date"
                 )
+            
             duration_in_days = duration_in_days-len(holidays)+len(weekoffplusholidays)
+
+            
                
         if emp_type in ["Staff", "Staff Trainee"]:
             duration_in_days = duration_in_days
@@ -160,9 +170,10 @@ class SalarySlip(TransactionBase):
                 elif emp_type in ["Staff", "Staff Trainee"]:
                     absent_days = relieving_duration_days
 
-    
+        
         self.total_working_days = duration_in_days
-        self.absent_days = self.absent_days + absent_days
+        
+        self.absent_days = absent_days
         self.payment_days = self.total_working_days - (self.leave_without_pay + self.absent_days)
         
     def calculate_overtime(self):
@@ -449,6 +460,7 @@ class SalarySlip(TransactionBase):
                  
                     for_remaining_ot = frappe.new_doc("Employee Incentive")
                     for_remaining_ot.employee = self.employee
+                    for_remaining_ot.company = self.company
                     for_remaining_ot.custom_posting_date = today()
                     for_remaining_ot.custom_include_in_salary_slip = 0
                     for_remaining_ot.custom_incentive_paid_for = "Remaining Overtime"
@@ -521,6 +533,7 @@ class SalarySlip(TransactionBase):
                             # Create new incentive
                             for_weekoff = frappe.new_doc("Employee Incentive")
                             for_weekoff.employee = self.employee
+                            for_weekoff.company = self.company
                             for_weekoff.custom_posting_date = today()
                             for_weekoff.custom_include_in_salary_slip = 0
                             for_weekoff.custom_incentive_paid_for = "Worked on WeekOff"
@@ -592,6 +605,7 @@ class SalarySlip(TransactionBase):
                             # Create new incentive
                             for_holiday = frappe.new_doc("Employee Incentive")
                             for_holiday.employee = self.employee
+                            for_holiday.company = self.company
                             for_holiday.custom_posting_date = today()
                             for_holiday.custom_include_in_salary_slip = 0
                             for_holiday.custom_incentive_paid_for = "Worked on WeekOff"
