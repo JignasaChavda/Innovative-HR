@@ -1,6 +1,8 @@
+import calendar
 import frappe
 from frappe import _
 from frappe.auth import today
+from datetime import datetime, timedelta
 from hrms.hr.doctype.leave_application.leave_application import validate_active_employee
 from hrms.payroll.doctype.salary_slip.salary_slip import SalarySlip as TransactionBase, sanitize_expression
 
@@ -23,7 +25,9 @@ class SalarySlip(TransactionBase):
             self.get_working_days_details(lwp=self.leave_without_pay)
 
         self.set_new_working_days()
-        self.calculate_overtime()
+        if self.is_new():
+            self.calculate_overtime()
+        # self.calculate_overtime()
         self.set_salary_structure_assignment()
         self.validate_employee_incentive()
         if self.is_new():
@@ -218,10 +222,10 @@ class SalarySlip(TransactionBase):
                 
                 for row in records:
                     attendance_date = row["attendance_date"]
-                    if attendance_date not in holiday_dates:
+                    # if attendance_date not in holiday_dates:
                         
-                        applicable_ot += (row["custom_overtime"] or 0)
-                        remaining_ot += (row["custom_remaining_overtime"] or 0)
+                    applicable_ot += (row["custom_overtime"] or 0)
+                    remaining_ot += (row["custom_remaining_overtime"] or 0)
                    
 
                 # Set the calculated overtime values
@@ -254,6 +258,36 @@ class SalarySlip(TransactionBase):
             holiday_list = frappe.db.get_value("Employee", self.employee, "holiday_list")
             per_day_wage = frappe.db.get_value('Employee', self.employee, 'custom_per_day_wages')
             per_hour_wage = frappe.db.get_value('Employee', self.employee, 'custom_per_hour_wages')
+            per_day_wage_for_weekoff = 0
+
+
+
+            # Per day wages for weekoff
+            weekly_off = frappe.db.get_value("Holiday List", holiday_list, "weekly_off")
+            base_salary = frappe.db.get_value("Salary Structure Assignment", {'employee': self.employee}, 'base') or 0
+            start_date = datetime.strptime(self.start_date, "%Y-%m-%d").date()
+            end_date = datetime.strptime(self.end_date, "%Y-%m-%d").date()
+            total_days = (end_date - start_date).days + 1
+
+            frappe.msgprint(str(total_days))
+
+            weekday_map = {
+                "Monday": 0,
+                "Tuesday": 1,
+                "Wednesday": 2,
+                "Thursday": 3,
+                "Friday": 4,
+                "Saturday": 5,
+                "Sunday": 6
+            }
+
+            weekly_off_index = weekday_map.get(weekly_off)
+
+            all_dates = [start_date + timedelta(days=i) for i in range(total_days)]
+            weekoff_dates = [d for d in all_dates if d.weekday() == weekly_off_index]
+            weekoff_count = len(weekoff_dates)
+            days_for_weekoff_calculation = total_days - weekoff_count
+            per_day_wage_for_weekoff = base_salary / days_for_weekoff_calculation if days_for_weekoff_calculation else 0
 
             # Check for existing remaining overtime incentive
             try:
@@ -320,14 +354,14 @@ class SalarySlip(TransactionBase):
                             # Count logic: Present = 1, Half Day = 0.5
                             if att.status == "Present":
                                 weekoff_count += 1
-                                if total_hours > work_hours:
-                                    extra_hours = total_hours - work_hours
-                                    wage = per_day_wage + (per_hour_wage * extra_hours)
-                                else:
-                                    wage = per_day_wage
+                                # if total_hours > work_hours:
+                                #     extra_hours = total_hours - work_hours
+                                #     wage = per_day_wage + (per_hour_wage * extra_hours)
+                                # else:
+                                wage = per_day_wage_for_weekoff
                             elif att.status == "Half Day":
                                 weekoff_count += 0.5
-                                wage = per_day_wage / 2
+                                wage = per_day_wage_for_weekoff / 2
                             else:
                                 wage = 0
 
@@ -451,7 +485,41 @@ class SalarySlip(TransactionBase):
             holiday_list = frappe.db.get_value("Employee", self.employee, "holiday_list")
             per_day_wage = frappe.db.get_value('Employee', self.employee, 'custom_per_day_wages')
             per_hour_wage = frappe.db.get_value('Employee', self.employee, 'custom_per_hour_wages')
-            
+            per_day_wage_for_weekoff = 0
+
+
+
+            # Per day wages for weekoff
+            weekly_off = frappe.db.get_value("Holiday List", holiday_list, "weekly_off")
+            base_salary = frappe.db.get_value("Salary Structure Assignment", {'employee': self.employee}, 'base') or 0
+            start_date = datetime.strptime(self.start_date, "%Y-%m-%d").date()
+            end_date = datetime.strptime(self.end_date, "%Y-%m-%d").date()
+            total_days = (end_date - start_date).days + 1
+
+            # frappe.msgprint(str(total_days))
+
+            weekday_map = {
+                "Monday": 0,
+                "Tuesday": 1,
+                "Wednesday": 2,
+                "Thursday": 3,
+                "Friday": 4,
+                "Saturday": 5,
+                "Sunday": 6
+            }
+
+            weekly_off_index = weekday_map.get(weekly_off)
+
+            all_dates = [start_date + timedelta(days=i) for i in range(total_days)]
+            weekoff_dates = [d for d in all_dates if d.weekday() == weekly_off_index]
+            weekoff_count = len(weekoff_dates)
+            days_for_weekoff_calculation = total_days - weekoff_count
+            per_day_wage_for_weekoff = base_salary / days_for_weekoff_calculation if days_for_weekoff_calculation else 0
+
+         
+
+
+
             # Generate new remaining overtime payment incentive
             try:
                 if self.custom_remaining_overtime:
@@ -512,14 +580,14 @@ class SalarySlip(TransactionBase):
                             # Count logic: Present = 1, Half Day = 0.5
                             if att.status == "Present":
                                 weekoff_count += 1
-                                if total_hours > work_hours:
-                                    extra_hours = total_hours - work_hours
-                                    wage = per_day_wage + (per_hour_wage * extra_hours)
-                                else:
-                                    wage = per_day_wage
+                                # if total_hours > work_hours:
+                                #     extra_hours = total_hours - work_hours
+                                #     wage = per_day_wage + (per_hour_wage * extra_hours)
+                                # else:
+                                wage = per_day_wage_for_weekoff
                             elif att.status == "Half Day":
                                 weekoff_count += 0.5
-                                wage = per_day_wage / 2
+                                wage = per_day_wage_for_weekoff / 2
                             else:
                                 wage = 0
 
