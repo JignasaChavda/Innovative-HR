@@ -71,7 +71,14 @@ frappe.query_reports["Monthly Attendance Report"] = {
 			default: 0,
 		},
 	],
-	onload: function () {
+	onload: function (report) {
+		if (!report.get_filter_value("company")) {
+            frappe.db.get_list('Company', {fields: ['name'], limit: 1}).then(r => {
+                if (r && r.length) {
+                    report.set_filter_value("company", r[0].name);
+                }
+            });
+        }
 		return frappe.call({
 			method: "hrms.hr.report.monthly_attendance_sheet.monthly_attendance_sheet.get_attendance_years",
 			callback: function (r) {
@@ -99,6 +106,8 @@ frappe.query_reports["Monthly Attendance Report"] = {
 				else if (value == "A") value = "<span style='color:red'>" + value + "</span>";
 				else if (value == "HD") value = "<span style='color:orange'>" + value + "</span>";
 				else if (value == "L") value = "<span style='color:#318AD8'>" + value + "</span>";
+				else if (value == "LOP") value = "<span style='color:red'>" + value + "</span>";
+				else if (value == "M") value = "<span style='color:orange'>" + value + "</span>";
 			}
 		}
 
