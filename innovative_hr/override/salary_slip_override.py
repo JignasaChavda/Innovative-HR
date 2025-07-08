@@ -233,22 +233,26 @@ class SalarySlip(TransactionBase):
                 self.custom_remaining_overtime = remaining_ot
 
             elif emp_type == 'Contract':
+                standard_hours = frappe.db.get_value('Employee', self.employee, 'custom_standard_working_hours')
                 # Fetch total worked hours excluding holidays
                 records = frappe.get_all("Attendance",
                     filters={
                         "employee": emp_id,
-                        "status": "Present",
+                        "docstatus": 1,
                         "attendance_date": ["between", [start_date, end_date]]
                     },
                     fields=["custom_total_hours", "attendance_date"]
                 )
-
+                
                 total_hours = 0
                 for row in records:
-                    if row.attendance_date not in holiday_list:
-                        total_hours += row.custom_total_hours or 0
+                #     if row.attendance_date not in holiday_list:
+                    total_hours += row.custom_total_hours or 0
 
                 self.custom_total_worked_hours = total_hours
+                # contract_days = total_hours/standard_hours
+                # frappe.msgprint(str(contract_days))
+                # self.custom_working_days_for_contractor = contract_days
 
         except Exception as e:
             frappe.throw(str(e))
