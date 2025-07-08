@@ -11,8 +11,6 @@ from innovative_hr.override.salary_slip_override import SalarySlip
 from itertools import groupby
 from hrms.hr.report.monthly_attendance_sheet.monthly_attendance_sheet import (
     get_attendance_map,
-    get_chart_data,
-    get_message,
     get_columns,
     set_defaults_for_summarized_view,
     get_attendance_records,
@@ -35,6 +33,8 @@ status_map = {
     "On Leave": "L",
     "Holiday": "H",
     "Weekly Off": "WO",
+    "Mispunch": "M",
+    "Leave Without Pay": "LOP"
 }
 
 day_abbr = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -90,7 +90,7 @@ def execute(filters: Filters | None = None) -> tuple:
             ("Worked Weekoffs", "worked_week_offs", "float", 120),
             ("Total Holidays", "total_holiday", "Int", 120),
             ("Worked Holidays", "worked_holidays", "float", 120),
-            ("Total Leaves", "total_leaves","float", 120),
+            ("Total Paid Leaves", "total_paid_leaves","float", 120),
             ("Total LOP", "total_lop", "float", 200),
             ("Total Payment Days", "total_payment_day", "float", 200),
             ("Total Work Hours", "total_work_hours", "Data", 200),
@@ -107,9 +107,8 @@ def execute(filters: Filters | None = None) -> tuple:
         return columns, [], None, None
 
     message = get_message() if not filters.summarized_view else ""
-    chart = get_chart_data(attendance_map, filters)
 
-    return columns, data, message, chart
+    return columns, data, message
 
 # * ------------------- Data Preparation ----------------------
 def get_data(filters: Filters, attendance_map: dict) -> list[dict]:
@@ -221,7 +220,7 @@ def custom_get_attendance_status_for_detailed_view(
     row = {}
     worked_week_offs = 0
     worked_holidays = 0
-    total_leaves = 0
+    total_paid_leaves = 0
     total_presents = 0
     lop_days = 0
     employment_type = frappe.db.get_value("Employee", employee, "employment_type")
@@ -266,7 +265,8 @@ def custom_get_attendance_status_for_detailed_view(
                     leave_type = frappe.get_doc("Leave Type", attendance[0].leave_type)
                     if leave_type.is_lwp:
                         lop_days += 0.5
-                    total_leaves += 0.5
+                    else:
+                        total_paid_leaves += 0.5
 
         elif abbr == "L":
             attendance  = frappe.get_all("Attendance", filters={"employee": employee, "attendance_date": f"{filters.year}-{filters.month}-{day}"}, fields=["leave_type"])
@@ -274,8 +274,11 @@ def custom_get_attendance_status_for_detailed_view(
                 leave_type = frappe.get_doc("Leave Type", attendance[0].leave_type)
                 if leave_type.is_lwp:
                     lop_days += 1
-            total_leaves += 1
-
+                    row[cstr(day)] = "LOP"
+                else:
+                    total_paid_leaves += 1
+                
+    total_presents = total_presents - worked_week_offs - worked_holidays
     # * Create Parameters To Pass in set_new_working_days Method
     working_days_obj = frappe._dict({
         "employee": employee,
@@ -299,7 +302,7 @@ def custom_get_attendance_status_for_detailed_view(
         "total_holiday": total_holidays,
         "worked_week_offs":worked_week_offs,
         "worked_holidays":worked_holidays,
-        "total_leaves": total_leaves,
+        "total_paid_leaves": total_paid_leaves,
         "total_lop": lop_days,
         "total_payment_day": payment_days,
         "total_working_days": total_working_days
@@ -374,3 +377,18 @@ def get_employee_related_details(filters: Filters) -> tuple[dict, list]:
             emp_map[emp.name] = emp
 
     return emp_map, group_by_param_values
+
+def get_message() -> str:
+	message = ""
+	colors = ["green", "red", "orange", "green", "#318AD8", "", "", "orange", "red"]
+
+	count = 0
+	for status, abbr in status_map.items():
+		message += f"""
+			<span style='border-left: 2px solid {colors[count]}; padding-right: 12px; padding-left: 5px; margin-right: 3px;'>
+				{status} - {abbr}
+			</span>
+		"""
+		count += 1
+
+	return message
