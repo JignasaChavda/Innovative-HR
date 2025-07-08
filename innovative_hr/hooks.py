@@ -131,7 +131,8 @@ app_license = "mit"
 
 override_doctype_class = {
 	"Salary Slip": "innovative_hr.override.salary_slip_override.SalarySlip",
-    "Attendance": "innovative_hr.override.attendance_override.Attendance"
+    "Attendance": "innovative_hr.override.attendance_override.Attendance",
+    "Payroll Entry": "innovative_hr.override.payroll_entry_override.CustomPayrollEntry"
 }
 
 # Document Events
