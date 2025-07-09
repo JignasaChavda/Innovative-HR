@@ -13,7 +13,7 @@ def execute(filters=None):
     salary_slips = frappe.db.sql("""
         SELECT ss.name, ss.employee, e.employee_name, e.department,
                ss.start_date, ss.end_date, ss.gross_pay, ss.total_deduction,
-               ss.net_pay, ss.status, ss.custom_working_days_for_contractor, ss.custom_total_worked_hours
+               ss.net_pay, ss.status, ss.custom_working_days_for_contractor, ss.custom_total_worked_hours, ss.custom_contractor
         FROM `tabSalary Slip` ss
         JOIN `tabEmployee` e ON ss.employee = e.name
         WHERE e.employment_type = 'Contract'
@@ -41,6 +41,7 @@ def execute(filters=None):
         {"label": "Salary Slip ID", "fieldname": "salary_slip", "fieldtype": "Link", "options": "Salary Slip", "width": 150},
         {"label": "Employee", "fieldname": "employee", "fieldtype": "Data", "width": 100},
 		{"label": "Employee Name", "fieldname": "employee_name", "fieldtype": "Data", "width": 150},
+        {"label": "Contractor", "fieldname": "contractor", "fieldtype": "Data", "width": 150},
         {"label": "Department", "fieldname": "department", "fieldtype": "Data", "width": 140},
         {"label": "Start Date", "fieldname": "start_date", "fieldtype": "Date", "width": 120},
         {"label": "End Date", "fieldname": "end_date", "fieldtype": "Date", "width": 120},
@@ -81,6 +82,7 @@ def execute(filters=None):
             "salary_slip": ss.name,
             "employee": ss.employee, 
 			"employee_name": ss.employee_name,
+            "contractor": ss.custom_contractor,
             "department": ss.department,
             "start_date": ss.start_date,
             "end_date": ss.end_date,
