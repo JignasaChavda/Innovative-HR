@@ -10,11 +10,67 @@
   "is_standard": "Yes",
   "javascript": null,
   "json": null,
+  "letter_head": "Prompt - Letter Head",
+  "modified": "2025-07-05 14:01:25.409162",
+  "module": "Innovative HR",
+  "name": "Monthly Attendance Report",
+  "prepared_report": 0,
+  "query": null,
+  "ref_doctype": "Attendance",
+  "reference_report": null,
+  "report_name": "Monthly Attendance Report",
+  "report_script": null,
+  "report_type": "Script Report",
+  "roles": [
+   {
+    "parent": "Monthly Attendance Report",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "HR Manager"
+   },
+   {
+    "parent": "Monthly Attendance Report",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Employee"
+   },
+   {
+    "parent": "Monthly Attendance Report",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "HR User"
+   },
+   {
+    "parent": "Monthly Attendance Report",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "System Manager"
+   },
+   {
+    "parent": "Monthly Attendance Report",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "Employee Self Service"
+   }
+  ],
+  "timeout": 0
+ },
+ {
+  "add_total_row": 0,
+  "add_translate_data": 0,
+  "columns": [],
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Report",
+  "filters": [],
+  "is_standard": "Yes",
+  "javascript": null,
+  "json": null,
   "letter_head": null,
   "modified": "2025-06-01 20:29:41.583080",
   "module": "Innovative HR",
   "name": "Daily Attendance Summary",
-  "prepared_report": 0,
+  "prepared_report": 1,
   "query": null,
   "ref_doctype": "Attendance",
   "reference_report": null,
@@ -51,6 +107,50 @@
     "parentfield": "roles",
     "parenttype": "Report",
     "role": "Employee Self Service"
+   }
+  ],
+  "timeout": 0
+ },
+ {
+  "add_total_row": 1,
+  "add_translate_data": 0,
+  "columns": [],
+  "disabled": 0,
+  "docstatus": 0,
+  "doctype": "Report",
+  "filters": [],
+  "is_standard": "Yes",
+  "javascript": null,
+  "json": null,
+  "letter_head": null,
+  "modified": "2025-07-09 12:49:26.495762",
+  "module": "Innovative HR",
+  "name": "Contractor Monthly Wages",
+  "prepared_report": 0,
+  "query": null,
+  "ref_doctype": "Salary Slip",
+  "reference_report": null,
+  "report_name": "Contractor Monthly Wages",
+  "report_script": null,
+  "report_type": "Script Report",
+  "roles": [
+   {
+    "parent": "Contractor Monthly Wages",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "System Manager"
+   },
+   {
+    "parent": "Contractor Monthly Wages",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "HR Manager"
+   },
+   {
+    "parent": "Contractor Monthly Wages",
+    "parentfield": "roles",
+    "parenttype": "Report",
+    "role": "HR User"
    }
   ],
   "timeout": 0
