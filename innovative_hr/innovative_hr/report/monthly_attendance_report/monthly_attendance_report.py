@@ -294,7 +294,17 @@ def custom_get_attendance_status_for_detailed_view(
     SalarySlip.set_new_working_days(working_days_obj)
     # * Set Total Working and Payment Days
     total_working_days = working_days_obj.total_working_days
-    payment_days = total_working_days - lop_days
+    # ? SET PAYMENT DAYS FOR CONTRACT EMPLOYEE
+    if employment_type == "Contract":
+        standard_working_hours = frappe.db.get_value("Employee", employee, "custom_standard_working_hours")
+        if not standard_working_hours:
+            payment_days = 0
+        else:
+            hours_data = get_employee_attendance_records(employee, filters)
+            total_hours = sum(row.get("custom_total_hours", 0) for row in hours_data)
+            payment_days = round(total_hours / standard_working_hours,1)
+    else:
+        payment_days = total_working_days - lop_days
 
     row.update({
         "total_present": total_presents,
