@@ -154,6 +154,9 @@ def mark_attendance(date=None, shift=None):
             shift = result.get('shift')
             shift_hours = frappe.db.get_value('Shift Type', result.get('shift'), 'custom_shift_hours')
             
+            standard_hours = frappe.db.get_value('Employee', emp_name, 'custom_standard_working_hours')
+            # frappe.msgprint(str(standard_hours))
+            
             OT_calculation_criteria = frappe.db.get_single_value('HR Settings', 'custom_show_overtime_in_salary_slip')
             
             if first_checkin_time and last_checkout_time:
@@ -176,14 +179,14 @@ def mark_attendance(date=None, shift=None):
                 total_work_hours = float(total_work_hours)
 
                 # Convert shift_hours to timedelta if it's not already
-                if isinstance(shift_hours, (int, float)):
-                    shift_hours = timedelta(hours=shift_hours)
+                if isinstance(standard_hours, (int, float)):
+                    standard_hours = timedelta(hours=standard_hours)
 
                 # Convert total_work_hours to timedelta
                 work_hours_timedelta = timedelta(hours=total_work_hours)
 
                 # Work Hours (Capped at shift hours)
-                work_hours = min(work_hours_timedelta, shift_hours)
+                work_hours = min(work_hours_timedelta, standard_hours)
 
                 # Convert OT calculation criteria to seconds
                 OT_calculation_criteria_seconds = OT_calculation_criteria * 60
@@ -200,8 +203,8 @@ def mark_attendance(date=None, shift=None):
                 remaining_OT = "00.00"
 
                 # Calculate Overtime if applicable
-                if emp_overtime_consent == 1 and work_hours_timedelta > shift_hours:
-                    overtime_timedelta = work_hours_timedelta - shift_hours
+                if emp_overtime_consent == 1 and work_hours_timedelta > standard_hours:
+                    overtime_timedelta = work_hours_timedelta - standard_hours
                     total_OT_seconds = overtime_timedelta.total_seconds()
 
                     if total_OT_seconds > OT_calculation_criteria_seconds:
