@@ -84,15 +84,15 @@ def execute(filters: Filters | None = None) -> tuple:
     columns += [
         {"label": _(label), "fieldname": field, "fieldtype": field_type, "width": width}
         for label, field, field_type, width in [
-            ("Total Working Days", "total_working_days", "float", 200),
-            ("Total Present Days", "total_present", "float", 200),
-            ("Total Weekoffs", "total_weekoff", "Int", 120),
+            ("Total Working Days of the Month", "total_working_days", "float", 200),
+            ("Total Present Days(P+HD) of the Month", "total_present", "float", 200),
+            ("Total Weekoffs of the month", "total_weekoff", "Int", 120),
             ("Worked Weekoffs", "worked_week_offs", "float", 120),
-            ("Total Holidays", "total_holiday", "Int", 120),
+            ("Total Holidays of the month", "total_holiday", "Int", 120),
             ("Worked Holidays", "worked_holidays", "float", 120),
             ("Total Paid Leaves", "total_paid_leaves","float", 120),
             ("Total LOP", "total_lop", "float", 200),
-            ("Total Payment Days", "total_payment_day", "float", 200),
+            ("Total Payment Days (Total Working Days-Total LOP)", "total_payment_day", "float", 200),
             ("Total Work Hours", "total_work_hours", "Data", 200),
             ("Total Applicable Overtime", "total_applicable_overtime", "Data", 200),
             ("Total Remaining Overtime", "total_remaining_overtime", "Data", 200)
