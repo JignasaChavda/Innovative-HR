@@ -84,7 +84,7 @@ def mark_attendance(date=None, shift=None):
                     shift_records[record_shift]['out_records'].append(record)
                 
                 # For night shifts, OUT should be on next date
-                elif shift_type == 'Night' and record_date == tomorrow_date:
+                elif shift_type == 'Night' and ((record_date == tomorrow_date) or (record_date == date)):
                     # Find corresponding IN record from today
                     matching_in_found = False
                     for check_record in all_checkin_records:
@@ -203,6 +203,7 @@ def process_combined_shift_attendance(result, existing_attendances):
     last_checkout = all_out_records[-1]['name'] if all_out_records else None
     last_checkout_time = all_out_records[-1]['time'] if all_out_records else None
     
+    
     # Check if attendance already exists
     exists_atte = frappe.db.get_value('Attendance', {
         'employee': emp_name,
@@ -218,10 +219,11 @@ def process_combined_shift_attendance(result, existing_attendances):
         )
         return
 
-    # Calculate combined working hours and create attendance
+    # Calculate combined working hours and create attendance - PASS shifts FOR COMBINED CALCULATION
     attendance_data = calculate_attendance_data(
         emp_name, emp_type, date, primary_shift, holiday_list,
-        first_checkin, last_checkout, first_checkin_time, last_checkout_time
+        first_checkin, last_checkout, first_checkin_time, last_checkout_time,
+        shifts  # Pass shifts data for combined calculation
     )
     
     create_attendance_record(attendance_data)
@@ -288,7 +290,7 @@ def process_single_shift_attendance(result, existing_attendances):
     create_attendance_record(attendance_data)
 
 def calculate_attendance_data(emp_name, emp_type, date, shift, holiday_list,
-                            first_checkin, last_checkout, first_checkin_time, last_checkout_time):
+                            first_checkin, last_checkout, first_checkin_time, last_checkout_time, shifts=None):
     """Calculate all attendance related data"""
     
     # Initialize default values
@@ -304,9 +306,27 @@ def calculate_attendance_data(emp_name, emp_type, date, shift, holiday_list,
     OT_calculation_criteria = frappe.db.get_single_value('HR Settings', 'custom_show_overtime_in_salary_slip')
     
     if first_checkin_time and last_checkout_time:
-        # Calculate work hours
-        work_hours = time_diff(last_checkout_time, first_checkin_time)
-        total_work_hours = work_hours.total_seconds() / 3600
+        # Calculate work hours based on whether it's combined shifts or single shift
+        if shifts and len(shifts) > 1:
+            # Combined shifts - calculate hours for each shift separately and sum them
+            total_work_hours = 0
+            
+            for shift_data in shifts:
+                if shift_data['in_records'] and shift_data['out_records']:
+                    shift_in_time = shift_data['in_records'][0]['time']
+                    shift_out_time = shift_data['out_records'][-1]['time']
+                  
+                    # Calculate hours for this shift
+                    shift_work_hours = time_diff(shift_out_time, shift_in_time)
+                    shift_hours = shift_work_hours.total_seconds() / 3600
+                    total_work_hours += shift_hours
+                
+            
+        else:
+            # Single shift - calculate normally
+            work_hours = time_diff(last_checkout_time, first_checkin_time)
+           
+            total_work_hours = work_hours.total_seconds() / 3600
 
         # Convert standard_hours to timedelta if it's not already
         if isinstance(standard_hours, (int, float)):
@@ -316,7 +336,7 @@ def calculate_attendance_data(emp_name, emp_type, date, shift, holiday_list,
 
         # Convert total_work_hours to timedelta
         work_hours_timedelta = timedelta(hours=total_work_hours)
-
+        
         # Work Hours (Capped at standard hours)
         capped_work_hours = min(work_hours_timedelta, standard_hours_td)
 
@@ -376,7 +396,7 @@ def calculate_attendance_data(emp_name, emp_type, date, shift, holiday_list,
         # Determine status based on thresholds
         half_day_hour = frappe.db.get_value('Shift Type', shift, 'working_hours_threshold_for_half_day')
         absent_hour = frappe.db.get_value('Shift Type', shift, 'working_hours_threshold_for_absent')
-
+        
         att_status = 'Present'
         if half_day_hour and total_work_hours < half_day_hour:
             att_status = 'Half Day'
