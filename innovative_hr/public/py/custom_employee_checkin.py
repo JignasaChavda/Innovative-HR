@@ -65,6 +65,7 @@ def before_save(self, method=None):
     }, fields=["name", "shift", "custom_shift_type", "time"], order_by="time ASC", limit=1)
     
     if not first_log:
+        # frappe.msgprint("First")
     # Fetch records for yesterday's night shift logs
         night_in_yesterday = frappe.get_all("Employee Checkin", filters={
             "employee": self.employee,
@@ -86,21 +87,17 @@ def before_save(self, method=None):
             "custom_shift_type": "Night",
             "log_type": "OUT"
         }, limit=1)
-
-       
-
+        
         # Check if there is a 'night_in_yesterday' record
         if night_in_yesterday:
-            
-            
+
             # Extract the time for comparison
             night_in_time = night_in_yesterday[0]["time"] if night_in_yesterday else None
             night_out_time_yesterday = night_out_yesterday[0]["time"] if night_out_yesterday else None
 
             # Check if the night shift from yesterday was completed
             if night_out_yesterday and night_in_time < night_out_time_yesterday:
-               
-                
+
                 # Night shift is complete, check for day shift
                 shift_data = get_shift_timings(today_date, yesterday_date)
                 for shift in shift_data:
@@ -110,16 +107,21 @@ def before_save(self, method=None):
                         self.log_type = 'IN'
                         self.custom_shift_type = shift["shift_type"]
                         break
-
+            
+            elif night_out_yesterday and (not night_out_today):
+                if night_in_time > night_out_time_yesterday:
+                    self.shift = night_in_yesterday[0]["shift"]
+                    self.log_type = "OUT"
+                    self.custom_shift_type = night_in_yesterday[0]["custom_shift_type"]
+                    
             # Night shift from yesterday is NOT complete yet
-            elif (not night_out_yesterday) and (not night_out_today):
-               
+            elif (not night_out_yesterday) and (not night_out_today): 
                 self.shift = night_in_yesterday[0]["shift"]
                 self.log_type = "OUT"
                 self.custom_shift_type = night_in_yesterday[0]["custom_shift_type"]
             
             else:
-                
+                # frappe.msgprint("In type is added ")
                 shift_data = get_shift_timings(today_date, yesterday_date)
                 for shift in shift_data:
                     if is_in_time_within_shift(date_time, shift["actual_start"], shift["grace_after_shift_start"]):
@@ -141,6 +143,7 @@ def before_save(self, method=None):
 
 
     else:
+        # frappe.msgprint("second")
         # Get shift data
         shift_data = get_shift_timings(today_date, yesterday_date)
         
