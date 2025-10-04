@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 import frappe
 from frappe.utils import add_days, get_time, time_diff
+from frappe.utils import today
 
 @frappe.whitelist(allow_guest=True)
 def update_attendance(attendance_name):
@@ -227,3 +228,102 @@ def update_attendance(attendance_name):
         doc.custom_remarks = att_remarks
         doc.save()
     
+
+def create_leave_on_absent(doc, method):
+    """Called when Attendance is submitted"""
+    if doc.status == "Absent":
+        create_leave_application(doc)
+    
+    # Check if custom_weekoff_status is "WeekOff" and attendance status is either Present or Half Day
+    if doc.custom_weekoff_status in ["WeekOff","Holiday"] and doc.status in ["Present", "Half Day"]:
+        create_compensatory_leave_request(doc)
+
+
+def create_leave_application(attendance_doc):
+    """
+    Auto-create Leave Application when Attendance is marked as Absent
+    """
+    # Avoid duplicate Leave Application
+    existing_leave = frappe.get_all(
+        "Leave Application",
+        filters={
+            "employee": attendance_doc.employee,
+            "from_date": attendance_doc.attendance_date,
+            "to_date": attendance_doc.attendance_date
+        },
+        limit=1
+    )
+    if existing_leave:
+        return
+
+    # Pick a default Leave Type (fallback to Casual Leave if none)
+    default_leave_type = frappe.db.get_value("Leave Type", "name") or "Leave Without Pay"
+
+    # Get leave approver from Employee master
+    # leave_approver = frappe.db.get_value("Employee", attendance_doc.employee, "leave_approver")
+
+    # Create Leave Application
+    leave_app = frappe.new_doc("Leave Application")
+    leave_app.leave_type = default_leave_type
+    leave_app.employee = attendance_doc.employee
+    leave_app.employee_name = attendance_doc.employee_name
+    leave_app.custom_employment_type = attendance_doc.custom_employment_type
+    leave_app.from_date = attendance_doc.attendance_date
+    leave_app.to_date = attendance_doc.attendance_date
+    # leave_app.reason = "Auto-created due to Absent Attendance"
+    leave_app.half_day = 0
+    # leave_app.leave_approver = leave_approver
+    # leave_app.posting_date = today()
+    # leave_app.follow_via_email = 1
+    leave_app.status = "Approved"  
+    leave_app.insert(ignore_permissions=True)
+    
+    # Submit the Leave Application directly
+    leave_app.submit()
+    
+    # frappe.msgprint(f"Leave Application {leave_app.name} created for Employee {attendance_doc.employee}")
+    
+
+def create_compensatory_leave_request(attendance_doc):
+    """
+    Auto-create a Compensatory Leave Request when the employee works on a WeekOff.
+    This is triggered if the employee's status is Present or Half Day and WeekOff is marked.
+    """
+    
+    # Avoid creating multiple requests for the same attendance date and employee
+    existing_leave_request = frappe.get_all(
+        "Compensatory Leave Request",
+        filters={
+            "employee": attendance_doc.employee,
+            "work_from_date": attendance_doc.attendance_date
+        },
+        limit=1
+    )
+    if existing_leave_request:
+        return
+
+    # Pick a default Leave Type (you can specify a particular leave type or use Compensatory Leave)
+    default_leave_type = "Compensatory Off"
+
+    # Create Compensatory Leave Request
+    compensatory_leave_request = frappe.new_doc("Compensatory Leave Request")
+    compensatory_leave_request.employee = attendance_doc.employee
+    compensatory_leave_request.leave_type = default_leave_type
+    compensatory_leave_request.work_from_date = attendance_doc.attendance_date
+    compensatory_leave_request.work_end_date = attendance_doc.attendance_date
+    compensatory_leave_request.reason = "Compensatory Leave for working on WeekOff"
+    
+    # Check if it was a Half Day
+    compensatory_leave_request.half_day = 1 if attendance_doc.status == "Half Day" else 0
+    
+    # If it's a Half Day, set the Half Day Date
+    if compensatory_leave_request.half_day:
+        compensatory_leave_request.half_day_date = attendance_doc.attendance_date
+
+    compensatory_leave_request.insert(ignore_permissions=True)
+
+    # Optionally submit the request directly
+    compensatory_leave_request.submit()
+
+    # frappe.msgprint(f"Compensatory Leave Request {compensatory_leave_request.name} created for Employee {attendance_doc.employee}")
+

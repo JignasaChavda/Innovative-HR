@@ -29,14 +29,15 @@ def mark_attendance(date=None, shift=None):
 
     final_messages = []
     existing_attendances = []
-    results = {}  # Dictionary to store results for each employee
-
+    results = {}  
+    
     for emp in active_employees:
         emp_name = emp["name"]
         emp_type = emp["employment_type"]
         emp_full_name = emp["employee_name"]
         emp_joining_date = emp.get("date_of_joining")
         holiday_list = emp.get("holiday_list")
+        # print("Employee name",emp_name)
         
         if emp_joining_date and emp_joining_date > date:
             continue
@@ -52,8 +53,26 @@ def mark_attendance(date=None, shift=None):
             order_by="custom_date asc, time asc"
         )
 
+        today_checkin_records = frappe.db.get_all(
+            "Employee Checkin",
+            filters={
+                "employee": emp_name,
+                "custom_date": ["in", [ date]]
+            },
+            fields=["name", "custom_date", "log_type", "time", "shift", "custom_shift_type"],
+            order_by="custom_date asc, time asc"
+        )
+        
+        # print("employee",emp_name)
+        if len(today_checkin_records) == 0: 
+            # print("\n\nFunction is callinggf...........")
+            
+            create_leave_application(emp_name,date)
+            
+        # print("\n\ntoday_checkin_records",today_checkin_records)
         if not all_checkin_records:
             continue
+        
 
         # Group records by shift and date
         shift_records = {}
@@ -142,6 +161,52 @@ def mark_attendance(date=None, shift=None):
     
     return final_messages
 
+def create_leave_application(employee, attendance_date):
+    """
+    Creates a Leave Application for the employee if no check-in log exists for the given date.
+    """
+    # Check if a Leave Application already exists for the employee on the given date
+    
+    existing_leave = frappe.get_all(
+        "Leave Application",
+        filters={
+            "employee": employee,
+            "from_date": attendance_date,
+            "to_date": attendance_date
+        },
+        limit=1
+    )
+    
+    if existing_leave:
+        return "Leave Application already exists for this date."
+
+    # Pick a default Leave Type (you can specify a particular leave type like "Casual Leave" or "Sick Leave")
+    default_leave_type = "Leave Without Pay"  # Or dynamically fetch it based on employee preferences
+
+    # Get the leave approver from the Employee master
+    # leave_approver = frappe.db.get_value("Employee", employee, "leave_approver")
+
+    # Create the Leave Application document
+    leave_application = frappe.new_doc("Leave Application")
+    leave_application.leave_type = default_leave_type
+    leave_application.employee = employee
+    leave_application.employee_name = frappe.db.get_value("Employee", employee, "employee_name")
+    leave_application.from_date = attendance_date
+    leave_application.to_date = attendance_date
+    leave_application.reason = "Auto-created due to missing check-in logs"
+    leave_application.half_day = 0  # Set this based on your logic (if half-day applies)
+    # leave_application.leave_approver = leave_approver
+    # leave_application.posting_date = today()
+    # leave_application.follow_via_email = 1
+    leave_application.status = "Approved"
+
+    # Insert the document
+    leave_application.insert(ignore_permissions=True)
+    
+    # Optionally, submit the leave application
+    leave_application.submit()
+    # frappe.msgprint(f"Leave Application {leave_application.name} created for Employee {leave_application.employee}")
+    
 def determine_shift_combinations(shift_records):
     """Determine how to combine shifts based on their types"""
     
@@ -449,6 +514,7 @@ def create_attendance_record(attendance_data):
         last_indatetime = get_datetime(attendance_data['last_checkout_time'])
         last_outtime = last_indatetime.time()
 
+    
     # Create attendance record
     attendance = frappe.new_doc("Attendance")
     attendance.employee = emp_name
@@ -458,21 +524,33 @@ def create_attendance_record(attendance_data):
 
     if attendance_data['first_checkin'] and attendance_data['last_checkout']:
         # Regular attendance
-        attendance.in_time = attendance_data['first_checkin_time']
-        attendance.out_time = attendance_data['last_checkout_time']
-        attendance.custom_checkin_time = first_intime
-        attendance.custom_checkout_time = last_outtime
-        attendance.custom_employee_checkin = attendance_data['first_checkin']
-        attendance.custom_employee_checkout = attendance_data['last_checkout']
-        attendance.custom_total_hours = attendance_data['final_total_hours']
-        attendance.custom_work_hours = attendance_data['final_work_hours']
+        if first_indatetime < last_indatetime:
+           
+            attendance.in_time = attendance_data['first_checkin_time']
+            attendance.out_time = attendance_data['last_checkout_time']
+            attendance.custom_checkin_time = first_intime
+            attendance.custom_checkout_time = last_outtime
+            attendance.custom_employee_checkin = attendance_data['first_checkin']
+            attendance.custom_employee_checkout = attendance_data['last_checkout']
+            attendance.custom_total_hours = attendance_data['final_total_hours']
+            attendance.custom_work_hours = attendance_data['final_work_hours']
 
-        if emp_type == "Worker":
-            attendance.custom_overtime = attendance_data['applicable_OT']
-            attendance.custom_remaining_overtime = attendance_data['remaining_OT']
+            if emp_type == "Worker":
+                attendance.custom_overtime = attendance_data['applicable_OT']
+                attendance.custom_remaining_overtime = attendance_data['remaining_OT']
 
-        attendance.status = attendance_data['att_status']
-        attendance.custom_remarks = attendance_data['att_remarks']
+            attendance.status = attendance_data['att_status']
+            attendance.custom_remarks = attendance_data['att_remarks']
+            
+        else:
+            # Invalid pair (OUT is before IN → treat as mispunch)
+            
+            attendance.custom_total_hours = "0.00"
+            attendance.custom_work_hours = "0.00"
+            attendance.custom_overtime = "0.00"
+            attendance.custom_remaining_overtime = "0.00"
+            attendance.status = 'Mispunch'
+            
 
     elif attendance_data['first_checkin'] or attendance_data['last_checkout']:
         # Mispunch record
