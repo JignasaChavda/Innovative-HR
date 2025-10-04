@@ -64,10 +64,10 @@ def mark_attendance(date=None, shift=None):
         )
         
         # print("employee",emp_name)
-        if len(today_checkin_records) == 0: 
-            # print("\n\nFunction is callinggf...........")
+        # if len(today_checkin_records) == 0: 
+        #     # print("\n\nFunction is callinggf...........")
             
-            create_leave_application(emp_name,date)
+        #     create_leave_application(emp_name,date)
             
         # print("\n\ntoday_checkin_records",today_checkin_records)
         if not all_checkin_records:

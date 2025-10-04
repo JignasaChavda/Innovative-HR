@@ -231,12 +231,12 @@ def update_attendance(attendance_name):
 
 def create_leave_on_absent(doc, method):
     """Called when Attendance is submitted"""
-    if doc.status == "Absent":
-        create_leave_application(doc)
+    # if doc.status == "Absent":
+    #     create_leave_application(doc)
     
     # Check if custom_weekoff_status is "WeekOff" and attendance status is either Present or Half Day
-    if doc.custom_weekoff_status in ["WeekOff","Holiday"] and doc.status in ["Present", "Half Day"]:
-        create_compensatory_leave_request(doc)
+    # if doc.custom_weekoff_status in ["WeekOff","Holiday"] and doc.status in ["Present", "Half Day"]:
+    #     create_compensatory_leave_request(doc)
 
 
 def create_leave_application(attendance_doc):
