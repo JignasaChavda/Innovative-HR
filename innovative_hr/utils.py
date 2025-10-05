@@ -64,10 +64,10 @@ def mark_attendance(date=None, shift=None):
         )
         
         # print("employee",emp_name)
-        # if len(today_checkin_records) == 0: 
-        #     # print("\n\nFunction is callinggf...........")
+        if len(today_checkin_records) == 0: 
+            # print("\n\nFunction is callinggf...........")
             
-        #     create_leave_application(emp_name,date)
+            create_leave_application(emp_name,date)
             
         # print("\n\ntoday_checkin_records",today_checkin_records)
         if not all_checkin_records:
@@ -171,8 +171,8 @@ def create_leave_application(employee, attendance_date):
         "Leave Application",
         filters={
             "employee": employee,
-            "from_date": attendance_date,
-            "to_date": attendance_date
+            "from_date": ["<=", attendance_date],
+            "to_date": [">=", attendance_date],
         },
         limit=1
     )
@@ -193,7 +193,6 @@ def create_leave_application(employee, attendance_date):
     leave_application.employee_name = frappe.db.get_value("Employee", employee, "employee_name")
     leave_application.from_date = attendance_date
     leave_application.to_date = attendance_date
-    leave_application.reason = "Auto-created due to missing check-in logs"
     leave_application.half_day = 0  # Set this based on your logic (if half-day applies)
     # leave_application.leave_approver = leave_approver
     # leave_application.posting_date = today()

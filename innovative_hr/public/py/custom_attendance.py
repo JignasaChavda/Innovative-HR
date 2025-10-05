@@ -231,12 +231,12 @@ def update_attendance(attendance_name):
 
 def create_leave_on_absent(doc, method):
     """Called when Attendance is submitted"""
-    # if doc.status == "Absent":
-    #     create_leave_application(doc)
+    if doc.status == "Absent":
+        create_leave_application(doc)
     
     # Check if custom_weekoff_status is "WeekOff" and attendance status is either Present or Half Day
-    # if doc.custom_weekoff_status in ["WeekOff","Holiday"] and doc.status in ["Present", "Half Day"]:
-    #     create_compensatory_leave_request(doc)
+    if doc.custom_weekoff_status in ["WeekOff","Holiday"] and doc.status in ["Present", "Half Day"]:
+        create_compensatory_leave_request(doc)
 
 
 def create_leave_application(attendance_doc):
@@ -248,8 +248,8 @@ def create_leave_application(attendance_doc):
         "Leave Application",
         filters={
             "employee": attendance_doc.employee,
-            "from_date": attendance_doc.attendance_date,
-            "to_date": attendance_doc.attendance_date
+            "from_date": ["<=",attendance_doc.attendance_date],
+            "to_date": [">=",attendance_doc.attendance_date]
         },
         limit=1
     )
@@ -295,7 +295,8 @@ def create_compensatory_leave_request(attendance_doc):
         "Compensatory Leave Request",
         filters={
             "employee": attendance_doc.employee,
-            "work_from_date": attendance_doc.attendance_date
+            "work_from_date": ["<=",attendance_doc.attendance_date],
+            "work_end_date":[">=",attendance_doc.attendance_date]
         },
         limit=1
     )

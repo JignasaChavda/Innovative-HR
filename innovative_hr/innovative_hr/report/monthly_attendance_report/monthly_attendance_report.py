@@ -278,7 +278,9 @@ def custom_get_attendance_status_for_detailed_view(
                 else:
                     total_paid_leaves += 1
                 
-    total_presents = total_presents - worked_week_offs - worked_holidays
+    total_presents = total_presents 
+    
+    # frappe.log_error("total_presents",total_presents)
     # * Create Parameters To Pass in set_new_working_days Method
     working_days_obj = frappe._dict({
         "employee": employee,
