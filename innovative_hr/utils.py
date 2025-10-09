@@ -11,10 +11,10 @@ def is_holiday(date, holiday_list):
 
 def mark_attendance(date=None, shift=None):
     if date:
-        # If date is provided, parse it
+        # ? If date is provided, parse it
         date = datetime.strptime(date, '%Y-%m-%d').date()
     else:
-        # If no date is provided, use yesterday
+        # ? If no date is provided, use yesterday
         date = datetime.strptime(today(), '%Y-%m-%d').date()
         date = add_days(date, -1)
 
@@ -37,12 +37,12 @@ def mark_attendance(date=None, shift=None):
         emp_full_name = emp["employee_name"]
         emp_joining_date = emp.get("date_of_joining")
         holiday_list = emp.get("holiday_list")
-        # print("Employee name",emp_name)
+        #  print("Employee name",emp_name)
         
         if emp_joining_date and emp_joining_date > date:
             continue
 
-        # Get all checkin records for the employee across relevant dates
+        # ? Get all checkin records for the employee across relevant dates
         all_checkin_records = frappe.db.get_all(
             "Employee Checkin",
             filters={
@@ -62,19 +62,17 @@ def mark_attendance(date=None, shift=None):
             fields=["name", "custom_date", "log_type", "time", "shift", "custom_shift_type"],
             order_by="custom_date asc, time asc"
         )
-        
-        # print("employee",emp_name)
-        if len(today_checkin_records) == 0: 
-            # print("\n\nFunction is callinggf...........")
+  
+        if len(today_checkin_records) == 0:
             
             create_leave_application(emp_name,date)
             
-        # print("\n\ntoday_checkin_records",today_checkin_records)
+       
         if not all_checkin_records:
             continue
         
 
-        # Group records by shift and date
+        # ? Group records by shift and date
         shift_records = {}
         
         for record in all_checkin_records:
@@ -82,7 +80,7 @@ def mark_attendance(date=None, shift=None):
             record_date = record.get('custom_date')
             shift_type = record.get('custom_shift_type')
             
-            # Only process records for the target date (IN records)
+            # ? Only process records for the target date (IN records)
             if record_date == date and record['log_type'] == 'IN':
                 if record_shift not in shift_records:
                     shift_records[record_shift] = {
@@ -94,17 +92,17 @@ def mark_attendance(date=None, shift=None):
                     }
                 shift_records[record_shift]['in_records'].append(record)
             
-            # Handle OUT records based on shift type
+            # ? Handle OUT records based on shift type
             if record['log_type'] == 'OUT':
-                # For day shifts, OUT should be on same date
+                # ? For day shifts, OUT should be on same date
                 if shift_type == 'Day' and record_date == date:
                     if record_shift not in shift_records:
-                        continue  # Skip if no corresponding IN record
+                        continue  # ? Skip if no corresponding IN record
                     shift_records[record_shift]['out_records'].append(record)
                 
-                # For night shifts, OUT should be on next date
+                # ? For night shifts, OUT should be on next date
                 elif shift_type == 'Night' and ((record_date == tomorrow_date) or (record_date == date)):
-                    # Find corresponding IN record from today
+                    # ? Find corresponding IN record from today
                     matching_in_found = False
                     for check_record in all_checkin_records:
                         if (check_record.get('custom_date') == date and 
@@ -127,13 +125,13 @@ def mark_attendance(date=None, shift=None):
         if not shift_records:
             continue
 
-        # Determine how to group shifts based on shift types
+        # ? Determine how to group shifts based on shift types
         shift_combinations = determine_shift_combinations(shift_records)
         
         if emp_name not in results:
             results[emp_name] = []
 
-        # Process each shift combination
+        # ? Process each shift combination
         for combination in shift_combinations:
             results[emp_name].append({
                 'emp_name': emp_name,
@@ -145,7 +143,7 @@ def mark_attendance(date=None, shift=None):
                 'holiday_list': holiday_list
             })
 
-    # Process attendance for each employee and shift combination
+    # ? Process attendance for each employee and shift combination
     for emp_name, emp_results in results.items():
         for result in emp_results:
             if result['combination_type'] == 'combined':
@@ -165,8 +163,8 @@ def create_leave_application(employee, attendance_date):
     """
     Creates a Leave Application for the employee if no check-in log exists for the given date.
     """
-    # Check if a Leave Application already exists for the employee on the given date
-    
+    # ? Check if a Leave Application already exists for the employee on the given date
+    #  print("\n\nLaave Aplication is Created")
     existing_leave = frappe.get_all(
         "Leave Application",
         filters={
@@ -180,37 +178,34 @@ def create_leave_application(employee, attendance_date):
     if existing_leave:
         return "Leave Application already exists for this date."
 
-    # Pick a default Leave Type (you can specify a particular leave type like "Casual Leave" or "Sick Leave")
-    default_leave_type = "Leave Without Pay"  # Or dynamically fetch it based on employee preferences
+    # ? Pick a default Leave Type (you can specify a particular leave type like "Casual Leave" or "Sick Leave")
+    default_leave_type = "Leave Without Pay"  # ? Or dynamically fetch it based on employee preferences
 
-    # Get the leave approver from the Employee master
-    # leave_approver = frappe.db.get_value("Employee", employee, "leave_approver")
+    # ? Get the leave approver from the Employee master
+    #  leave_approver = frappe.db.get_value("Employee", employee, "leave_approver")
 
-    # Create the Leave Application document
+    # ? Create the Leave Application document
     leave_application = frappe.new_doc("Leave Application")
     leave_application.leave_type = default_leave_type
     leave_application.employee = employee
     leave_application.employee_name = frappe.db.get_value("Employee", employee, "employee_name")
     leave_application.from_date = attendance_date
     leave_application.to_date = attendance_date
-    leave_application.half_day = 0  # Set this based on your logic (if half-day applies)
-    # leave_application.leave_approver = leave_approver
-    # leave_application.posting_date = today()
-    # leave_application.follow_via_email = 1
+    leave_application.half_day = 0  
     leave_application.status = "Approved"
 
-    # Insert the document
+    # ? Insert the document
     leave_application.insert(ignore_permissions=True)
     
-    # Optionally, submit the leave application
+    # ? Optionally, submit the leave application
     leave_application.submit()
-    # frappe.msgprint(f"Leave Application {leave_application.name} created for Employee {leave_application.employee}")
+    #  frappe.msgprint(f"Leave Application {leave_application.name} created for Employee {leave_application.employee}")
     
 def determine_shift_combinations(shift_records):
     """Determine how to combine shifts based on their types"""
     
     if len(shift_records) == 1:
-        # Single shift
+        # ? Single shift
         shift_name = list(shift_records.keys())[0]
         return [{
             'type': 'single',
@@ -221,7 +216,7 @@ def determine_shift_combinations(shift_records):
         shifts = list(shift_records.values())
         shift_types = [shift['shift_type'] for shift in shifts]
         
-        # Day + Night or Day + Day = Combined attendance
+        # ? Day + Night or Day + Day = Combined attendance
         if ('Day' in shift_types and 'Night' in shift_types and shift_types[0] == 'Day') or \
            (shift_types[0] == 'Day' and shift_types[1] == 'Day'):
             return [{
@@ -229,14 +224,14 @@ def determine_shift_combinations(shift_records):
                 'shifts': shifts
             }]
         
-        # Night + Day = Separate attendances
+        # ? Night + Day = Separate attendances
         elif shift_types[0] == 'Night' and shift_types[1] == 'Day':
             return [
                 {'type': 'single', 'shifts': [shifts[0]]},
                 {'type': 'single', 'shifts': [shifts[1]]}
             ]
     
-    # Default: process each shift separately
+    # ? Default: process each shift separately
     return [{'type': 'single', 'shifts': [shift]} for shift in shift_records.values()]
 
 def process_combined_shift_attendance(result, existing_attendances):
@@ -249,16 +244,16 @@ def process_combined_shift_attendance(result, existing_attendances):
     holiday_list = result.get('holiday_list')
     emp_type = result.get('emp_type')
     
-    # Get the first check-in and last check-out across all shifts
+    # ? Get the first check-in and last check-out across all shifts
     all_in_records = []
     all_out_records = []
-    primary_shift = shifts[0]['shift_name']  # Use first shift as primary
+    primary_shift = shifts[0]['shift_name']  # ? Use first shift as primary
     
     for shift in shifts:
         all_in_records.extend(shift['in_records'])
         all_out_records.extend(shift['out_records'])
     
-    # Sort by time
+    # ? Sort by time
     all_in_records.sort(key=lambda x: x['time'])
     all_out_records.sort(key=lambda x: x['time'])
     
@@ -268,7 +263,7 @@ def process_combined_shift_attendance(result, existing_attendances):
     last_checkout_time = all_out_records[-1]['time'] if all_out_records else None
     
     
-    # Check if attendance already exists
+    # ? Check if attendance already exists
     exists_atte = frappe.db.get_value('Attendance', {
         'employee': emp_name,
         'attendance_date': date,
@@ -283,11 +278,11 @@ def process_combined_shift_attendance(result, existing_attendances):
         )
         return
 
-    # Calculate combined working hours and create attendance - PASS shifts FOR COMBINED CALCULATION
+    # ? Calculate combined working hours and create attendance - PASS shifts FOR COMBINED CALCULATION
     attendance_data = calculate_attendance_data(
         emp_name, emp_type, date, primary_shift, holiday_list,
         first_checkin, last_checkout, first_checkin_time, last_checkout_time,
-        shifts  # Pass shifts data for combined calculation
+        shifts  # ? Pass shifts data for combined calculation
     )
     
     create_attendance_record(attendance_data)
@@ -329,7 +324,7 @@ def process_single_shift_attendance(result, existing_attendances):
     last_checkout = out_records[-1]['name'] if out_records else None
     last_checkout_time = out_records[-1]['time'] if out_records else None
 
-    # Check if attendance already exists for this specific shift
+    # ? Check if attendance already exists for this specific shift
     exists_atte = frappe.db.get_value('Attendance', {
         'employee': emp_name,
         'attendance_date': date,
@@ -345,7 +340,7 @@ def process_single_shift_attendance(result, existing_attendances):
         )
         return
 
-    # Calculate working hours and create attendance
+    # ? Calculate working hours and create attendance
     attendance_data = calculate_attendance_data(
         emp_name, emp_type, date, shift, holiday_list,
         first_checkin, last_checkout, first_checkin_time, last_checkout_time
@@ -357,7 +352,7 @@ def calculate_attendance_data(emp_name, emp_type, date, shift, holiday_list,
                             first_checkin, last_checkout, first_checkin_time, last_checkout_time, shifts=None):
     """Calculate all attendance related data"""
     
-    # Initialize default values
+    # ? Initialize default values
     final_total_hours = "0.00"
     final_work_hours = "0.00"
     applicable_OT = "0.00"
@@ -365,14 +360,14 @@ def calculate_attendance_data(emp_name, emp_type, date, shift, holiday_list,
     att_status = 'Absent'
     att_remarks = ''
 
-    # Get configurations
+    # ? Get configurations
     standard_hours = frappe.db.get_value('Employee', emp_name, 'custom_standard_working_hours')
     OT_calculation_criteria = frappe.db.get_single_value('HR Settings', 'custom_show_overtime_in_salary_slip')
     
     if first_checkin_time and last_checkout_time:
-        # Calculate work hours based on whether it's combined shifts or single shift
+        # ? Calculate work hours based on whether it's combined shifts or single shift
         if shifts and len(shifts) > 1:
-            # Combined shifts - calculate hours for each shift separately and sum them
+            # ? Combined shifts - calculate hours for each shift separately and sum them
             total_work_hours = 0
             
             for shift_data in shifts:
@@ -380,50 +375,50 @@ def calculate_attendance_data(emp_name, emp_type, date, shift, holiday_list,
                     shift_in_time = shift_data['in_records'][0]['time']
                     shift_out_time = shift_data['out_records'][-1]['time']
                   
-                    # Calculate hours for this shift
+                    # ? Calculate hours for this shift
                     shift_work_hours = time_diff(shift_out_time, shift_in_time)
                     shift_hours = shift_work_hours.total_seconds() / 3600
                     total_work_hours += shift_hours
                 
             
         else:
-            # Single shift - calculate normally
+            # ? Single shift - calculate normally
             work_hours = time_diff(last_checkout_time, first_checkin_time)
            
             total_work_hours = work_hours.total_seconds() / 3600
 
-        # Convert standard_hours to timedelta if it's not already
+        # ? Convert standard_hours to timedelta if it's not already
         if isinstance(standard_hours, (int, float)):
             standard_hours_td = timedelta(hours=standard_hours)
         else:
             standard_hours_td = standard_hours
 
-        # Convert total_work_hours to timedelta
+        # ? Convert total_work_hours to timedelta
         work_hours_timedelta = timedelta(hours=total_work_hours)
         
-        # Work Hours (Capped at standard hours)
+        # ? Work Hours (Capped at standard hours)
         capped_work_hours = min(work_hours_timedelta, standard_hours_td)
 
-        # Calculate overtime
+        # ? Calculate overtime
         emp_overtime_consent = frappe.db.get_value('Employee', emp_name, 'custom_overtime_applicable')
         show_ot_in_salslip = frappe.db.get_single_value('HR Settings', 'custom_show_overtime_in_salary_slip')
         show_ot_limit = float(show_ot_in_salslip) if show_ot_in_salslip else 0.0
         
-        # Calculate Overtime if applicable
+        # ? Calculate Overtime if applicable
         if emp_overtime_consent == 1 and work_hours_timedelta > standard_hours_td:
             overtime_timedelta = work_hours_timedelta - standard_hours_td
             total_OT_seconds = overtime_timedelta.total_seconds()
             OT_calculation_criteria_seconds = (OT_calculation_criteria * 60) if OT_calculation_criteria else 0
 
             if total_OT_seconds > OT_calculation_criteria_seconds:
-                # Convert overtime to hours and apply rounding
+                # ? Convert overtime to hours and apply rounding
                 OT_hours, OT_remainder = divmod(total_OT_seconds, 3600)
                 OT_minutes, _ = divmod(OT_remainder, 60)
 
                 if OT_minutes >= 30:
                     OT_hours += 1
 
-                # Apply OT limit
+                # ? Apply OT limit
                 if OT_hours > show_ot_limit:
                     applicable_OT = f"{int(show_ot_limit):02}.00"
                     remaining_OT_hours = int(OT_hours - show_ot_limit)
@@ -431,21 +426,21 @@ def calculate_attendance_data(emp_name, emp_type, date, shift, holiday_list,
                 else:
                     applicable_OT = f"{int(OT_hours):02}.00"
 
-        # Format work hours
+        # ? Format work hours
         capped_hours, capped_remainder = divmod(capped_work_hours.total_seconds(), 3600)
         capped_minutes, _ = divmod(capped_remainder, 60)
         if capped_minutes >= 30:
             capped_hours += 1
         final_work_hours = f"{int(capped_hours):02}.00"
 
-        # Format total hours
+        # ? Format total hours
         total_hours_int, total_remainder = divmod(work_hours_timedelta.total_seconds(), 3600)
         total_minutes, _ = divmod(total_remainder, 60)
         if total_minutes >= 30:
             total_hours_int += 1
         final_total_hours = f"{int(total_hours_int):02}.00"
 
-        # Holiday check
+        # ? Holiday check
         holiday = frappe.db.exists('Holiday', {
             'holiday_date': date,
             'parent': holiday_list,
@@ -457,7 +452,7 @@ def calculate_attendance_data(emp_name, emp_type, date, shift, holiday_list,
             applicable_OT = "0.00"
             remaining_OT = f"{remaining_OT_hours:02.2f}"
 
-        # Determine status based on thresholds
+        # ? Determine status based on thresholds
         half_day_hour = frappe.db.get_value('Shift Type', shift, 'working_hours_threshold_for_half_day')
         absent_hour = frappe.db.get_value('Shift Type', shift, 'working_hours_threshold_for_absent')
         
@@ -493,15 +488,32 @@ def create_attendance_record(attendance_data):
     shift = attendance_data['shift']
     holiday_list = attendance_data['holiday_list']
     emp_type = attendance_data['emp_type']
-    
+
+    # ? print("\n\nEmployee Name",emp_name)
     holiday_info = is_holiday(date, holiday_list)
     custom_weekoff_status = ""
     
+    print("\n\nHoliday list",holiday_list)
+    print("\n\nHolidat List",holiday_info)
+    # if holiday_info:
+    #     if holiday_info.weekly_off:
+    #         print("If condition is true......")
+    #         return
+    #         #  custom_weekoff_status = "WeekOff"
+    #     elif not holiday_info.weekly_off:
+    #         print("\n\nElse condition is true working......")
+    #         return 
+            #  custom_weekoff_status = "Holiday"
+         
     if holiday_info:
         if holiday_info.weekly_off and (attendance_data['first_checkin'] or attendance_data['last_checkout']):
             custom_weekoff_status = "WeekOff"
-        elif not holiday_info.weekly_off:
+        elif not holiday_info.weekly_off and (attendance_data['first_checkin'] or attendance_data['last_checkout']):
             custom_weekoff_status = "Holiday"
+        elif holiday_info.weekly_off:
+            return
+        elif not holiday_info.weekly_off:
+            return
 
     first_intime = None
     last_outtime = None
@@ -512,9 +524,8 @@ def create_attendance_record(attendance_data):
     if attendance_data['last_checkout_time']:
         last_indatetime = get_datetime(attendance_data['last_checkout_time'])
         last_outtime = last_indatetime.time()
-
     
-    # Create attendance record
+    # ? Create attendance record
     attendance = frappe.new_doc("Attendance")
     attendance.employee = emp_name
     attendance.attendance_date = date
@@ -522,9 +533,8 @@ def create_attendance_record(attendance_data):
     attendance.custom_weekoff_status = custom_weekoff_status
 
     if attendance_data['first_checkin'] and attendance_data['last_checkout']:
-        # Regular attendance
+        # ? Regular attendance
         if first_indatetime < last_indatetime:
-           
             attendance.in_time = attendance_data['first_checkin_time']
             attendance.out_time = attendance_data['last_checkout_time']
             attendance.custom_checkin_time = first_intime
@@ -542,7 +552,7 @@ def create_attendance_record(attendance_data):
             attendance.custom_remarks = attendance_data['att_remarks']
             
         else:
-            # Invalid pair (OUT is before IN → treat as mispunch)
+            # ? Invalid pair (OUT is before IN → treat as mispunch)
             
             attendance.custom_total_hours = "0.00"
             attendance.custom_work_hours = "0.00"
@@ -552,7 +562,7 @@ def create_attendance_record(attendance_data):
             
 
     elif attendance_data['first_checkin'] or attendance_data['last_checkout']:
-        # Mispunch record
+        # ? Mispunch record
         if attendance_data['first_checkin_time']:
             attendance.in_time = attendance_data['first_checkin_time']
             attendance.custom_checkin_time = first_intime
